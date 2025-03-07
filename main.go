@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/joho/godotenv"
 	"github.com/sar-michal/dictionary-app/models"
 	"github.com/sar-michal/dictionary-app/storage"
 	"gorm.io/gorm"
@@ -15,6 +16,11 @@ type Repository struct {
 }
 
 func main() {
+	err := godotenv.Load(".env")
+	if err != nil {
+		log.Fatal("Failed to load .env file", err)
+	}
+
 	config := &storage.Config{
 		Host:     os.Getenv("DB_HOST"),
 		Port:     os.Getenv("DB_PORT"),
@@ -28,6 +34,9 @@ func main() {
 	if err != nil {
 		log.Fatal("Failed to connect to database", err)
 	}
-	models.Migrate(db)
+	err = models.Migrate(db)
+	if err != nil {
+		log.Fatal("Failed to migrate the database", err)
+	}
 	fmt.Println("Successfully migrated the database")
 }
