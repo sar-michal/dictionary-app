@@ -1,4 +1,4 @@
-module github.com/sar-michal/Dictionary-App
+module github.com/sar-michal/dictionary-app
 
 go 1.24.0
 
