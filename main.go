@@ -34,6 +34,9 @@ func main() {
 	if err != nil {
 		log.Fatal("Failed to connect to database", err)
 	}
+
+	defer storage.CloseDB(db)
+
 	err = models.Migrate(db)
 	if err != nil {
 		log.Fatal("Failed to migrate the database", err)

@@ -28,3 +28,11 @@ func NewConnection(config *Config) (*gorm.DB, error) {
 	}
 	return db, nil
 }
+
+func CloseDB(db *gorm.DB) error {
+	sqlDB, err := db.DB()
+	if err != nil {
+		return err
+	}
+	return sqlDB.Close()
+}
