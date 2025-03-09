@@ -6,7 +6,7 @@ import (
 
 type Repository interface {
 	// gets or creates a word in the database if it does not exist
-	GetOrCreateWord(word string) (*models.Word, error)
+	GetOrCreateWord(polishWord string) (*models.Word, error)
 	ListWords() ([]models.Word, error)
 	GetWordByPolish(polishWord string) (*models.Word, error)
 	GetWordByID(wordID uint) (*models.Word, error)
