@@ -11,12 +11,13 @@ type GormRepository struct {
 
 func (r *GormRepository) GetOrCreateWord(polishWord string) (*models.Word, error) {
 	var word models.Word
-	result := r.DB.
+	err := r.DB.
 		Where("polish_word = ?", polishWord).
-		FirstOrCreate(&word, models.Word{PolishWord: polishWord})
+		FirstOrCreate(&word, models.Word{PolishWord: polishWord}).
+		Error
 
-	if result.Error != nil {
-		return nil, result.Error
+	if err != nil {
+		return nil, err
 	}
 
 	return &word, nil
@@ -24,31 +25,102 @@ func (r *GormRepository) GetOrCreateWord(polishWord string) (*models.Word, error
 
 func (r *GormRepository) ListWords() ([]models.Word, error) {
 	var words []models.Word
-	result := r.DB.Find(&words)
 
-	if result.Error != nil {
-		return nil, result.Error
+	if err := r.DB.Find(&words).Error; err != nil {
+		return nil, err
 	}
 
 	return words, nil
 }
 
 func (r *GormRepository) GetWordByPolish(polishWord string) (*models.Word, error) {
+	var word models.Word
+
+	if err := r.DB.Where("polish_word = ?", polishWord).First(&word).Error; err != nil {
+		return nil, err
+	}
+
+	return &word, nil
 }
 
 func (r *GormRepository) GetWordByID(wordID uint) (*models.Word, error) {
+	var word models.Word
+
+	if err := r.DB.First(&word, wordID).Error; err != nil {
+		return nil, err
+	}
+
+	return &word, nil
 }
 
 func (r *GormRepository) UpdateWord(wordID uint, newPolishWord string) (*models.Word, error) {
+	word, err := r.GetWordByID(wordID)
+	if err != nil {
+		return nil, err
+	}
+
+	word.PolishWord = newPolishWord
+
+	if err := r.DB.Save(word).Error; err != nil {
+		return nil, err
+	}
+	return word, nil
 }
 
 func (r *GormRepository) DeleteWord(wordID uint) error {
+	tx := r.DB.Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
+	// find all translations of the word
+	var Translations []models.Translation
+	err := tx.Where("word_id = ?", wordID).Find(&Translations).Error
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	// delete all associated example sentences
+	for _, t := range Translations {
+		err = tx.
+			Where("translation_id = ?", t.TranslationID).
+			Delete(&models.ExampleSentence{}).Error
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+	// delete all translations of the word
+	err = tx.Where("word_id = ?", wordID).Delete(&models.Translation{}).Error
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	// delete the word
+	err = tx.Delete(&models.Word{}, wordID).Error
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	return tx.Commit().Error
 }
 
 func (r *GormRepository) ListTranslations(wordID uint) ([]models.Translation, error) {
+	var translations []models.Translation
+
+	if err := r.DB.Where("word_id = ?", wordID).Find(&translations).Error; err != nil {
+		return nil, err
+	}
+	return translations, nil
 }
 
 func (r *GormRepository) GetTranslationByID(translationID uint) (*models.Translation, error) {
+	var translation models.Translation
+
+	if err := r.DB.First(&translation, translationID).Error; err != nil {
+		return nil, err
+	}
+	return &translation, nil
 }
 
 func (r *GormRepository) CreateTranslation(wordID uint, englishTranslation string) (*models.Translation, error) {
