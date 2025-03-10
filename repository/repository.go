@@ -18,6 +18,7 @@ type Repository interface {
 	GetTranslationByID(translationID uint) (*models.Translation, error)
 	CreateTranslation(wordID uint, englishTranslation string) (*models.Translation, error)
 	UpdateTranslation(translationID uint, newEnglishTranslation string) (*models.Translation, error)
+	// deletes the translation and its associated example sentences
 	DeleteTranslation(translationID uint) error
 
 	ListExampleSentences(translationID uint) ([]models.ExampleSentence, error)
