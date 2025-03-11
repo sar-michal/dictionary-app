@@ -19,7 +19,6 @@ func (r *GormRepository) GetOrCreateWord(polishWord string) (*models.Word, error
 	if err != nil {
 		return nil, err
 	}
-
 	return &word, nil
 }
 
@@ -29,7 +28,6 @@ func (r *GormRepository) ListWords() ([]models.Word, error) {
 	if err := r.DB.Find(&words).Error; err != nil {
 		return nil, err
 	}
-
 	return words, nil
 }
 
@@ -39,7 +37,6 @@ func (r *GormRepository) GetWordByPolish(polishWord string) (*models.Word, error
 	if err := r.DB.Where("polish_word = ?", polishWord).First(&word).Error; err != nil {
 		return nil, err
 	}
-
 	return &word, nil
 }
 
@@ -49,7 +46,6 @@ func (r *GormRepository) GetWordByID(wordID uint) (*models.Word, error) {
 	if err := r.DB.First(&word, wordID).Error; err != nil {
 		return nil, err
 	}
-
 	return &word, nil
 }
 
@@ -124,25 +120,87 @@ func (r *GormRepository) GetTranslationByID(translationID uint) (*models.Transla
 }
 
 func (r *GormRepository) CreateTranslation(wordID uint, englishTranslation string) (*models.Translation, error) {
+	translation := models.Translation{
+		WordID:             wordID,
+		EnglishTranslation: englishTranslation,
+	}
+
+	if err := r.DB.Create(&translation).Error; err != nil {
+		return nil, err
+	}
+	return &translation, nil
 }
 
 func (r *GormRepository) UpdateTranslation(translationID uint, newEnglishTranslation string) (*models.Translation, error) {
+	translation, err := r.GetTranslationByID(translationID)
+	if err != nil {
+		return nil, err
+	}
+
+	translation.EnglishTranslation = newEnglishTranslation
+
+	if err := r.DB.Save(translation).Error; err != nil {
+		return nil, err
+	}
+	return translation, nil
 }
 
 func (r *GormRepository) DeleteTranslation(translationID uint) error {
+	if err := r.DB.Delete(&models.Translation{}, translationID).Error; err != nil {
+		return err
+	}
+	return nil
 }
 
 func (r *GormRepository) ListExampleSentences(translationID uint) ([]models.ExampleSentence, error) {
+	var sentences []models.ExampleSentence
+	err := r.DB.
+		Where("translation_id = ?", translationID).
+		Find(&sentences).
+		Error
+	if err != nil {
+		return nil, err
+	}
+	return sentences, nil
 }
 
 func (r *GormRepository) GetExampleSentenceByID(sentenceID uint) (*models.ExampleSentence, error) {
+	var sentence models.ExampleSentence
+
+	if err := r.DB.First(&sentence, sentenceID).Error; err != nil {
+		return nil, err
+	}
+	return &sentence, nil
 }
 
 func (r *GormRepository) CreateExampleSentence(translationID uint, sentenceText string) (*models.ExampleSentence, error) {
+	sentence := models.ExampleSentence{
+		TranslationID: translationID,
+		SentenceText:  sentenceText,
+	}
+	if err := r.DB.Create(&sentence).Error; err != nil {
+		return nil, err
+	}
+	return &sentence, nil
 }
 
 func (r *GormRepository) UpdateExampleSentence(sentenceID uint, newSentenceText string) (*models.ExampleSentence, error) {
+	sentence, err := r.GetExampleSentenceByID(sentenceID)
+	if err != nil {
+		return nil, err
+	}
+
+	sentence.SentenceText = newSentenceText
+
+	if err := r.DB.Save(sentence).Error; err != nil {
+		return nil, err
+	}
+	return sentence, nil
 }
 
 func (r *GormRepository) DeleteExampleSentence(sentenceID uint) error {
+	if err := r.DB.Delete(models.ExampleSentence{}, sentenceID).Error; err != nil {
+		return err
+	}
+	return nil
 }
