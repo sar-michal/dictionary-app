@@ -5,20 +5,20 @@ import (
 )
 
 type Repository interface {
-	// gets or creates a word in the database if it does not exist
+	// Gets or creates a word in the database if it does not exist
 	GetOrCreateWord(polishWord string) (*models.Word, error)
 	ListWords() ([]models.Word, error)
 	GetWordByPolish(polishWord string) (*models.Word, error)
 	GetWordByID(wordID uint) (*models.Word, error)
 	UpdateWord(wordID uint, newPolishWord string) (*models.Word, error)
-	// deletes a word and all its translations and example sentences
+	// Deletes a word and all its translations and example sentences
 	DeleteWord(wordID uint) error
 
 	ListTranslations(wordID uint) ([]models.Translation, error)
 	GetTranslationByID(translationID uint) (*models.Translation, error)
 	CreateTranslation(wordID uint, englishTranslation string) (*models.Translation, error)
 	UpdateTranslation(translationID uint, newEnglishTranslation string) (*models.Translation, error)
-	// deletes the translation and its associated example sentences
+	// Deletes the translation and its associated example sentences
 	DeleteTranslation(translationID uint) error
 
 	ListExampleSentences(translationID uint) ([]models.ExampleSentence, error)
