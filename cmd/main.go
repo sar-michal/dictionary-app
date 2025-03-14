@@ -5,7 +5,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/joho/godotenv"
+	"github.com/sar-michal/dictionary-app/pkg/config"
 	"github.com/sar-michal/dictionary-app/pkg/models"
 	"github.com/sar-michal/dictionary-app/pkg/storage"
 	"gorm.io/gorm"
@@ -16,18 +16,10 @@ type Repository struct {
 }
 
 func main() {
-	err := godotenv.Load(".env")
+	os.Setenv("GO_ENV", "development")
+	config, err := config.LoadConfig()
 	if err != nil {
-		log.Fatal("Failed to load .env file", err)
-	}
-
-	config := &storage.Config{
-		Host:     os.Getenv("DB_HOST"),
-		Port:     os.Getenv("DB_PORT"),
-		User:     os.Getenv("DB_USER"),
-		Password: os.Getenv("DB_PASSWORD"),
-		DBName:   os.Getenv("DB_NAME"),
-		SSLMode:  os.Getenv("DB_SSLMODE"),
+		log.Println("No .env file found")
 	}
 
 	db, err := storage.NewConnection(config)
