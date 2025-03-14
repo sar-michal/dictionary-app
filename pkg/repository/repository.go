@@ -1,7 +1,7 @@
 package repository
 
 import (
-	"github.com/sar-michal/dictionary-app/models"
+	"github.com/sar-michal/dictionary-app/pkg/models"
 )
 
 type Repository interface {
