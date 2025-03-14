@@ -6,8 +6,8 @@ import (
 	"os"
 
 	"github.com/joho/godotenv"
-	"github.com/sar-michal/dictionary-app/models"
-	"github.com/sar-michal/dictionary-app/storage"
+	"github.com/sar-michal/dictionary-app/pkg/models"
+	"github.com/sar-michal/dictionary-app/pkg/storage"
 	"gorm.io/gorm"
 )
 
