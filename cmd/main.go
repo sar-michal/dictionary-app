@@ -27,7 +27,11 @@ func main() {
 		log.Fatal("Failed to connect to database", err)
 	}
 
-	defer storage.CloseDB(db)
+	defer func() {
+		if err := storage.CloseDB(db); err != nil {
+			log.Printf("Error closing database: %v", err)
+		}
+	}()
 
 	err = models.Migrate(db)
 	if err != nil {
