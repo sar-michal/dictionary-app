@@ -146,10 +146,23 @@ func (r *GormRepository) UpdateTranslation(translationID uint, newEnglishTransla
 }
 
 func (r *GormRepository) DeleteTranslation(translationID uint) error {
-	if err := r.DB.Delete(&models.Translation{}, translationID).Error; err != nil {
+	tx := r.DB.Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
+	// Delete all associated example sentences
+	err := tx.Where("translation_id = ?", translationID).Delete(models.ExampleSentence{}).Error
+	if err != nil {
+		tx.Rollback()
 		return err
 	}
-	return nil
+	// Delete the translation
+	err = tx.Delete(&models.Translation{}, translationID).Error
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	return tx.Commit().Error
 }
 
 func (r *GormRepository) ListExampleSentences(translationID uint) ([]models.ExampleSentence, error) {
