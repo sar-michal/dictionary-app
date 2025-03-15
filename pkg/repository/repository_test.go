@@ -3,6 +3,7 @@ package repository_test
 import (
 	"log"
 	"os"
+	"sync"
 	"testing"
 
 	"github.com/sar-michal/dictionary-app/pkg/config"
@@ -31,7 +32,6 @@ func TestMain(m *testing.M) {
 	if err := models.Migrate(db); err != nil {
 		log.Fatalf("Failed to migrate test database: %v", err)
 	}
-
 	// Inject GormRepository
 	repo = &repository.GormRepository{DB: db}
 	code := m.Run()
@@ -97,8 +97,7 @@ func TestListWords(t *testing.T) {
 		for _, w := range words {
 			if w.PolishWord == "kot" {
 				foundKot = true
-			}
-			if w.PolishWord == "pies" {
+			} else if w.PolishWord == "pies" {
 				foundPies = true
 			}
 		}
@@ -163,4 +162,245 @@ func TestDeleteWord(t *testing.T) {
 		_, err = txRepo.GetExampleSentenceByID(example.SentenceID)
 		assert.Error(t, err, "Expected error retrieving example sentence after deletion")
 	})
+}
+
+func TestListTranslations(t *testing.T) {
+	withTransaction(t, func(txRepo repository.Repository) {
+		word, err := txRepo.GetOrCreateWord("kot")
+		require.NoError(t, err, "GetOrCreateWord should not error")
+
+		// Create two translations for "kot": "cat" and "kitty".
+		_, err = txRepo.CreateTranslation(word.WordID, "cat")
+		require.NoError(t, err, "CreateTranslation should not error for 'cat'")
+
+		_, err = txRepo.CreateTranslation(word.WordID, "kitty")
+		require.NoError(t, err, "CreateTranslation should not error for 'kitty'")
+
+		translations, err := txRepo.ListTranslations(word.WordID)
+		require.NoError(t, err, "ListTranslations should not error")
+		assert.Equal(t, 2, len(translations), "Expected two translations for 'kot'")
+	})
+}
+func TestGetTranslationByID(t *testing.T) {
+	withTransaction(t, func(txRepo repository.Repository) {
+		word, err := txRepo.GetOrCreateWord("pies")
+		require.NoError(t, err, "GetOrCreateWord should not error")
+
+		translation, err := txRepo.CreateTranslation(word.WordID, "dog")
+		require.NoError(t, err, "CreateTranslation should not error for 'dog'")
+
+		retrieved, err := txRepo.GetTranslationByID(translation.TranslationID)
+		require.NoError(t, err, "GetTranslationByID should not error")
+		assert.Equal(t, "dog", retrieved.EnglishTranslation, "Expected English translation to be 'dog'")
+	})
+}
+func TestCreateTranslation(t *testing.T) {
+	withTransaction(t, func(txRepo repository.Repository) {
+		word, err := txRepo.GetOrCreateWord("lis")
+		require.NoError(t, err, "GetOrCreateWord should not error")
+
+		translation, err := txRepo.CreateTranslation(word.WordID, "fox")
+		require.NoError(t, err, "CreateTranslation should not error for 'fox'")
+		assert.Equal(t, "fox", translation.EnglishTranslation, "Expected English translation to be 'fox'")
+	})
+}
+func TestUpdateTranslation(t *testing.T) {
+	withTransaction(t, func(txRepo repository.Repository) {
+		word, err := txRepo.GetOrCreateWord("koza")
+		require.NoError(t, err, "GetOrCreateWord should not error")
+
+		translation, err := txRepo.CreateTranslation(word.WordID, "goat")
+		require.NoError(t, err, "CreateTranslation should not error for 'goat'")
+
+		updated, err := txRepo.UpdateTranslation(translation.TranslationID, "she-goat")
+		require.NoError(t, err, "UpdateTranslation should not error")
+		assert.Equal(t, "she-goat", updated.EnglishTranslation, "Expected updated English translation to be 'she-goat'")
+	})
+}
+func TestDeleteTranslation(t *testing.T) {
+	withTransaction(t, func(txRepo repository.Repository) {
+		word, err := txRepo.GetOrCreateWord("słoń")
+		require.NoError(t, err, "GetOrCreateWord should not error")
+
+		translation, err := txRepo.CreateTranslation(word.WordID, "elephant")
+		require.NoError(t, err, "CreateTranslation should not error for 'elephant'")
+
+		example, err := txRepo.CreateExampleSentence(translation.TranslationID, "An elephant is a large animal.")
+		require.NoError(t, err, "CreateExampleSentence should not error")
+
+		err = txRepo.DeleteTranslation(translation.TranslationID)
+		require.NoError(t, err, "DeleteTranslation should not error")
+
+		_, err = txRepo.GetTranslationByID(translation.TranslationID)
+		assert.Error(t, err, "Expected error retrieving deleted translation")
+
+		_, err = txRepo.GetExampleSentenceByID(example.SentenceID)
+		assert.Error(t, err, "Expected error retrieving deleted example sentence")
+	})
+}
+func TestListExampleSentences(t *testing.T) {
+	withTransaction(t, func(txRepo repository.Repository) {
+		word, err := txRepo.GetOrCreateWord("kot")
+		require.NoError(t, err, "GetOrCreateWord should not error")
+
+		translation, err := txRepo.CreateTranslation(word.WordID, "cat")
+		require.NoError(t, err, "CreateTranslation should not error")
+
+		// Create two example sentences.
+		_, err = txRepo.CreateExampleSentence(translation.TranslationID, "John has a cat.")
+		require.NoError(t, err, "CreateExampleSentence should not error for first sentence")
+
+		_, err = txRepo.CreateExampleSentence(translation.TranslationID, "A cat is climbing a tree.")
+		require.NoError(t, err, "CreateExampleSentence should not error for second sentence")
+
+		sentences, err := txRepo.ListExampleSentences(translation.TranslationID)
+		require.NoError(t, err, "ListExampleSentences should not error")
+		assert.Equal(t, 2, len(sentences), "Expected two example sentences")
+	})
+}
+func TestGetExampleSentenceByID(t *testing.T) {
+	withTransaction(t, func(txRepo repository.Repository) {
+		word, err := txRepo.GetOrCreateWord("pies")
+		require.NoError(t, err, "GetOrCreateWord should not error")
+
+		translation, err := txRepo.CreateTranslation(word.WordID, "dog")
+		require.NoError(t, err, "CreateTranslation should not error")
+
+		sentence, err := txRepo.CreateExampleSentence(translation.TranslationID, "A dog is running around.")
+		require.NoError(t, err, "CreateExampleSentence should not error")
+
+		retrieved, err := txRepo.GetExampleSentenceByID(sentence.SentenceID)
+		require.NoError(t, err, "GetExampleSentenceByID should not error")
+		assert.Equal(t, "A dog is running around.", retrieved.SentenceText, "Expected sentence text to match")
+	})
+}
+func TestCreateExampleSentence(t *testing.T) {
+	withTransaction(t, func(txRepo repository.Repository) {
+		word, err := txRepo.GetOrCreateWord("lis")
+		require.NoError(t, err, "GetOrCreateWord Should Not Error")
+
+		translation, err := txRepo.CreateTranslation(word.WordID, "fox")
+		require.NoError(t, err, "CreateTranslation Should Not Error")
+
+		sentence, err := txRepo.CreateExampleSentence(translation.TranslationID, "The quick brown fox jumps over the lazy dog.")
+		require.NoError(t, err, "CreateExampleSentence Should Not Error")
+		assert.Equal(t, "The quick brown fox jumps over the lazy dog.", sentence.SentenceText,
+			"Expected Sentence Text To Be 'The quick brown fox jumps over the lazy dog'")
+	})
+}
+func TestUpdateExampleSentence(t *testing.T) {
+	withTransaction(t, func(txRepo repository.Repository) {
+		word, err := txRepo.GetOrCreateWord("koza")
+		require.NoError(t, err, "GetOrCreateWord Should Not Error")
+
+		translation, err := txRepo.CreateTranslation(word.WordID, "goat")
+		require.NoError(t, err, "CreateTranslation Should Not Error")
+
+		sentence, err := txRepo.CreateExampleSentence(translation.TranslationID, "The goat is eating grass.")
+		require.NoError(t, err, "CreateExampleSentence Should Not Error")
+
+		updated, err := txRepo.UpdateExampleSentence(sentence.SentenceID, "The goat is drinking water.")
+		require.NoError(t, err, "UpdateExampleSentence Should Not Error")
+		assert.Equal(t, "The goat is drinking water.", updated.SentenceText,
+			"Expected Updated Sentence Text To Be 'The goat is drinking water.'")
+	})
+}
+func TestDeleteExampleSentence(t *testing.T) {
+	withTransaction(t, func(txRepo repository.Repository) {
+		word, err := txRepo.GetOrCreateWord("owca")
+		require.NoError(t, err, "GetOrCreateWord Should Not Error")
+
+		translation, err := txRepo.CreateTranslation(word.WordID, "sheep")
+		require.NoError(t, err, "CreateTranslation Should Not Error")
+
+		sentence, err := txRepo.CreateExampleSentence(translation.TranslationID, "The fluffly sheep is sleeping.")
+		require.NoError(t, err, "CreateExampleSentence Should Not Error")
+
+		err = txRepo.DeleteExampleSentence(sentence.SentenceID)
+		require.NoError(t, err, "DeleteExampleSentence Should Not Error")
+
+		_, err = txRepo.GetExampleSentenceByID(sentence.SentenceID)
+		assert.Error(t, err, "Expected Error Retrieving Deleted Example Sentence")
+	})
+}
+func TestConcurrentCreateTranslations(t *testing.T) {
+	// Clean up the database
+	CleanupRepository(t)
+	defer CleanupRepository(t)
+
+	word, err := repo.GetOrCreateWord("kot")
+	require.NoError(t, err, "GetOrCreateWord should not error")
+
+	translationsToCreate := []string{"cat", "kitty", "feline", "mouser", "pussy"}
+
+	var wg sync.WaitGroup
+	wg.Add(len(translationsToCreate))
+	errCh := make(chan error, len(translationsToCreate))
+
+	// Launch concurrent goroutines to create translations.
+	for _, trans := range translationsToCreate {
+		trans := trans
+		go func() {
+			_, err := repo.CreateTranslation(word.WordID, trans)
+			if err != nil {
+				errCh <- err
+			}
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+	close(errCh)
+
+	for err := range errCh {
+		require.NoError(t, err, "CreateTranslation should not error in concurrent execution")
+	}
+
+	createdTranslations, err := repo.ListTranslations(word.WordID)
+	require.NoError(t, err, "ListTranslations should not error")
+	assert.Equal(t, len(translationsToCreate), len(createdTranslations), "Expected number of translations to match")
+}
+func TestConcurrentCreateExampleSentences(t *testing.T) {
+	// Clean up the database
+	CleanupRepository(t)
+	defer CleanupRepository(t)
+
+	word, err := repo.GetOrCreateWord("pies")
+	require.NoError(t, err, "GetOrCreateWord should not error")
+
+	translation, err := repo.CreateTranslation(word.WordID, "dog")
+	require.NoError(t, err, "CreateTranslation should not error")
+
+	sentencesToCreate := []string{
+		"The dog barks.",
+		"The dog runs.",
+		"The dog eats.",
+		"The dog sleeps.",
+		"The dog plays.",
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(len(sentencesToCreate))
+	errCh := make(chan error, len(sentencesToCreate))
+
+	// Launch concurrent goroutines to create example sentences.
+	for _, sentence := range sentencesToCreate {
+		sentence := sentence
+		go func() {
+			_, err := repo.CreateExampleSentence(translation.TranslationID, sentence)
+			if err != nil {
+				errCh <- err
+			}
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+	close(errCh)
+
+	for err := range errCh {
+		require.NoError(t, err, "CreateExampleSentence should not error in concurrent execution")
+	}
+
+	examples, err := repo.ListExampleSentences(translation.TranslationID)
+	require.NoError(t, err, "ListExampleSentences should not error")
+	assert.Equal(t, len(sentencesToCreate), len(examples), "Expected number of example sentences to match")
 }
