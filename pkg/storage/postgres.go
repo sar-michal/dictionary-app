@@ -3,20 +3,12 @@ package storage
 import (
 	"fmt"
 
+	"github.com/sar-michal/dictionary-app/pkg/config"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
-type Config struct {
-	Host     string
-	Port     string
-	User     string
-	Password string
-	DBName   string
-	SSLMode  string
-}
-
-func NewConnection(config *Config) (*gorm.DB, error) {
+func NewConnection(config *config.Config) (*gorm.DB, error) {
 	dsn := fmt.Sprintf(
 		"host=%s user=%s password=%s dbname=%s port=%s sslmode=%s",
 		config.Host, config.User, config.Password, config.DBName, config.Port, config.SSLMode,
