@@ -64,41 +64,46 @@ func (r *GormRepository) UpdateWord(wordID uint, newPolishWord string) (*models.
 }
 
 func (r *GormRepository) DeleteWord(wordID uint) error {
-	tx := r.DB.Begin()
-	if tx.Error != nil {
-		return tx.Error
-	}
-	// Find all translations of the word
-	var translations []models.Translation
-	err := tx.Where("word_id = ?", wordID).Find(&translations).Error
-	if err != nil {
-		tx.Rollback()
-		return err
-	}
-	// Delete all associated example sentences
-	for _, t := range translations {
-		err = tx.
-			Where("translation_id = ?", t.TranslationID).
-			Delete(&models.ExampleSentence{}).Error
+	err := r.DB.Transaction(func(tx *gorm.DB) error {
+
+		if tx.Error != nil {
+			return tx.Error
+		}
+		// Find all translations of the word
+		var translations []models.Translation
+		err := tx.Where("word_id = ?", wordID).Find(&translations).Error
 		if err != nil {
 			tx.Rollback()
 			return err
 		}
-	}
-	// Delete all translations of the word
-	err = tx.Where("word_id = ?", wordID).Delete(&models.Translation{}).Error
+		// Delete all associated example sentences
+		for _, t := range translations {
+			err = tx.
+				Where("translation_id = ?", t.TranslationID).
+				Delete(&models.ExampleSentence{}).Error
+			if err != nil {
+				tx.Rollback()
+				return err
+			}
+		}
+		// Delete all translations of the word
+		err = tx.Where("word_id = ?", wordID).Delete(&models.Translation{}).Error
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+		// Delete the word
+		err = tx.Delete(&models.Word{}, wordID).Error
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+		return nil
+	})
 	if err != nil {
-		tx.Rollback()
 		return err
 	}
-	// Delete the word
-	err = tx.Delete(&models.Word{}, wordID).Error
-	if err != nil {
-		tx.Rollback()
-		return err
-	}
-
-	return tx.Commit().Error
+	return nil
 }
 
 func (r *GormRepository) ListTranslations(wordID uint) ([]models.Translation, error) {
@@ -146,23 +151,25 @@ func (r *GormRepository) UpdateTranslation(translationID uint, newEnglishTransla
 }
 
 func (r *GormRepository) DeleteTranslation(translationID uint) error {
-	tx := r.DB.Begin()
-	if tx.Error != nil {
-		return tx.Error
-	}
-	// Delete all associated example sentences
-	err := tx.Where("translation_id = ?", translationID).Delete(models.ExampleSentence{}).Error
+	err := r.DB.Transaction(func(tx *gorm.DB) error {
+		// Delete all associated example sentences
+		err := tx.
+			Where("translation_id = ?", translationID).
+			Delete(&models.ExampleSentence{}).
+			Error
+		if err != nil {
+			return err
+		}
+		// Delete the translation
+		if err := tx.Delete(&models.Translation{}, translationID).Error; err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
-		tx.Rollback()
 		return err
 	}
-	// Delete the translation
-	err = tx.Delete(&models.Translation{}, translationID).Error
-	if err != nil {
-		tx.Rollback()
-		return err
-	}
-	return tx.Commit().Error
+	return nil
 }
 
 func (r *GormRepository) ListExampleSentences(translationID uint) ([]models.ExampleSentence, error) {
