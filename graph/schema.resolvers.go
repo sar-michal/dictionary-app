@@ -7,23 +7,45 @@ package graph
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/sar-michal/dictionary-app/graph/model"
 )
 
 // CreateWord is the resolver for the createWord field.
 func (r *mutationResolver) CreateWord(ctx context.Context, polishWord string) (*model.Word, error) {
-	panic(fmt.Errorf("not implemented: CreateWord - createWord"))
+	word, err := r.Repo.GetOrCreateWord(polishWord)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create word: %w", err)
+	}
+	return convertWord(word), nil
 }
 
 // UpdateWord is the resolver for the updateWord field.
 func (r *mutationResolver) UpdateWord(ctx context.Context, wordID string, newPolishWord string) (*model.Word, error) {
-	panic(fmt.Errorf("not implemented: UpdateWord - updateWord"))
+	id, err := strconv.ParseUint(wordID, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid wordID: %w", err)
+	}
+
+	word, err := r.Repo.UpdateWord(uint(id), newPolishWord)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update word: %w", err)
+	}
+	return convertWord(word), nil
 }
 
 // DeleteWord is the resolver for the deleteWord field.
 func (r *mutationResolver) DeleteWord(ctx context.Context, wordID string) (bool, error) {
-	panic(fmt.Errorf("not implemented: DeleteWord - deleteWord"))
+	id, err := strconv.ParseUint(wordID, 10, 64)
+	if err != nil {
+		return false, fmt.Errorf("invaild wordID: %w", err)
+	}
+
+	if err := r.Repo.DeleteWord(uint(id)); err != nil {
+		return false, fmt.Errorf("failed to delete word: %w", err)
+	}
+	return true, nil
 }
 
 // CreateTranslationWithWord is the resolver for the createTranslationWithWord field.
@@ -32,7 +54,7 @@ func (r *mutationResolver) CreateTranslationWithWord(ctx context.Context, polish
 }
 
 // CreateTranslation is the resolver for the createTranslation field.
-func (r *mutationResolver) CreateTranslation(ctx context.Context, wordID string, englishTranslation string) (*model.Translation, error) {
+func (r *mutationResolver) CreateTranslation(ctx context.Context, wordID string, englishTranslation string, exampleSentences []string) (*model.Translation, error) {
 	panic(fmt.Errorf("not implemented: CreateTranslation - createTranslation"))
 }
 
@@ -63,17 +85,39 @@ func (r *mutationResolver) DeleteExampleSentence(ctx context.Context, sentenceID
 
 // Words is the resolver for the words field.
 func (r *queryResolver) Words(ctx context.Context) ([]*model.Word, error) {
-	panic(fmt.Errorf("not implemented: Words - words"))
+	words, err := r.Repo.ListWords()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list words: %w", err)
+	}
+
+	gqlWords := make([]*model.Word, len(words))
+	for i, w := range words {
+		gqlWords[i] = convertWord(&w)
+	}
+	return gqlWords, nil
 }
 
 // WordByPolish is the resolver for the wordByPolish field.
 func (r *queryResolver) WordByPolish(ctx context.Context, polishWord string) (*model.Word, error) {
-	panic(fmt.Errorf("not implemented: WordByPolish - wordByPolish"))
+	word, err := r.Repo.GetWordByPolish(polishWord)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get word by polish: %w", err)
+	}
+	return convertWord(word), nil
 }
 
 // WordByID is the resolver for the wordByID field.
 func (r *queryResolver) WordByID(ctx context.Context, wordID string) (*model.Word, error) {
-	panic(fmt.Errorf("not implemented: WordByID - wordByID"))
+	id, err := strconv.ParseUint(wordID, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid wordID: %w", err)
+	}
+
+	word, err := r.Repo.GetWordByID(uint(id))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get word by id: %w", err)
+	}
+	return convertWord(word), nil
 }
 
 // Translations is the resolver for the translations field.
@@ -104,18 +148,3 @@ func (r *Resolver) Query() QueryResolver { return &queryResolver{r} }
 
 type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
-
-// !!! WARNING !!!
-// The code below was going to be deleted when updating resolvers. It has been copied here so you have
-// one last chance to move it out of harms way if you want. There are two reasons this happens:
-//  - When renaming or deleting a resolver the old code will be put in here. You can safely delete
-//    it when you're done.
-//  - You have helper methods in this file. Move them out to keep these resolver files clean.
-/*
-	func (r *mutationResolver) CreateTodo(ctx context.Context, input model.NewTodo) (*model.Todo, error) {
-	panic(fmt.Errorf("not implemented: CreateTodo - createTodo"))
-}
-func (r *queryResolver) Todos(ctx context.Context) ([]*model.Todo, error) {
-	panic(fmt.Errorf("not implemented: Todos - todos"))
-}
-*/
