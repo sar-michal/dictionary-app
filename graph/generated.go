@@ -48,14 +48,14 @@ type DirectiveRoot struct {
 
 type ComplexityRoot struct {
 	ExampleSentence struct {
-		SentenceID   func(childComplexity int) int
-		SentenceText func(childComplexity int) int
-		Translation  func(childComplexity int) int
+		SentenceID    func(childComplexity int) int
+		SentenceText  func(childComplexity int) int
+		TranslationID func(childComplexity int) int
 	}
 
 	Mutation struct {
 		CreateExampleSentence     func(childComplexity int, translationID string, sentenceText string) int
-		CreateTranslation         func(childComplexity int, wordID string, englishTranslation string) int
+		CreateTranslation         func(childComplexity int, wordID string, englishTranslation string, exampleSentences []string) int
 		CreateTranslationWithWord func(childComplexity int, polishWord string, englishTranslation string, exampleSentences []string) int
 		CreateWord                func(childComplexity int, polishWord string) int
 		DeleteExampleSentence     func(childComplexity int, sentenceID string) int
@@ -80,7 +80,7 @@ type ComplexityRoot struct {
 		EnglishTranslation func(childComplexity int) int
 		ExampleSentences   func(childComplexity int) int
 		TranslationID      func(childComplexity int) int
-		Word               func(childComplexity int) int
+		WordID             func(childComplexity int) int
 	}
 
 	Word struct {
@@ -95,7 +95,7 @@ type MutationResolver interface {
 	UpdateWord(ctx context.Context, wordID string, newPolishWord string) (*model.Word, error)
 	DeleteWord(ctx context.Context, wordID string) (bool, error)
 	CreateTranslationWithWord(ctx context.Context, polishWord string, englishTranslation string, exampleSentences []string) (*model.Translation, error)
-	CreateTranslation(ctx context.Context, wordID string, englishTranslation string) (*model.Translation, error)
+	CreateTranslation(ctx context.Context, wordID string, englishTranslation string, exampleSentences []string) (*model.Translation, error)
 	UpdateTranslation(ctx context.Context, translationID string, newEnglishTranslation string) (*model.Translation, error)
 	DeleteTranslation(ctx context.Context, translationID string) (bool, error)
 	CreateExampleSentence(ctx context.Context, translationID string, sentenceText string) (*model.ExampleSentence, error)
@@ -145,12 +145,12 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.ExampleSentence.SentenceText(childComplexity), true
 
-	case "ExampleSentence.translation":
-		if e.complexity.ExampleSentence.Translation == nil {
+	case "ExampleSentence.translationID":
+		if e.complexity.ExampleSentence.TranslationID == nil {
 			break
 		}
 
-		return e.complexity.ExampleSentence.Translation(childComplexity), true
+		return e.complexity.ExampleSentence.TranslationID(childComplexity), true
 
 	case "Mutation.createExampleSentence":
 		if e.complexity.Mutation.CreateExampleSentence == nil {
@@ -174,7 +174,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Mutation.CreateTranslation(childComplexity, args["wordID"].(string), args["englishTranslation"].(string)), true
+		return e.complexity.Mutation.CreateTranslation(childComplexity, args["wordID"].(string), args["englishTranslation"].(string), args["exampleSentences"].([]string)), true
 
 	case "Mutation.createTranslationWithWord":
 		if e.complexity.Mutation.CreateTranslationWithWord == nil {
@@ -372,12 +372,12 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Translation.TranslationID(childComplexity), true
 
-	case "Translation.word":
-		if e.complexity.Translation.Word == nil {
+	case "Translation.wordID":
+		if e.complexity.Translation.WordID == nil {
 			break
 		}
 
-		return e.complexity.Translation.Word(childComplexity), true
+		return e.complexity.Translation.WordID(childComplexity), true
 
 	case "Word.polishWord":
 		if e.complexity.Word.PolishWord == nil {
@@ -636,6 +636,11 @@ func (ec *executionContext) field_Mutation_createTranslation_args(ctx context.Co
 		return nil, err
 	}
 	args["englishTranslation"] = arg1
+	arg2, err := ec.field_Mutation_createTranslation_argsExampleSentences(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["exampleSentences"] = arg2
 	return args, nil
 }
 func (ec *executionContext) field_Mutation_createTranslation_argsWordID(
@@ -661,6 +666,19 @@ func (ec *executionContext) field_Mutation_createTranslation_argsEnglishTranslat
 	}
 
 	var zeroVal string
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Mutation_createTranslation_argsExampleSentences(
+	ctx context.Context,
+	rawArgs map[string]any,
+) ([]string, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("exampleSentences"))
+	if tmp, ok := rawArgs["exampleSentences"]; ok {
+		return ec.unmarshalOString2ᚕstringᚄ(ctx, tmp)
+	}
+
+	var zeroVal []string
 	return zeroVal, nil
 }
 
@@ -1228,8 +1246,8 @@ func (ec *executionContext) fieldContext_ExampleSentence_sentenceText(_ context.
 	return fc, nil
 }
 
-func (ec *executionContext) _ExampleSentence_translation(ctx context.Context, field graphql.CollectedField, obj *model.ExampleSentence) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_ExampleSentence_translation(ctx, field)
+func (ec *executionContext) _ExampleSentence_translationID(ctx context.Context, field graphql.CollectedField, obj *model.ExampleSentence) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_ExampleSentence_translationID(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -1242,7 +1260,7 @@ func (ec *executionContext) _ExampleSentence_translation(ctx context.Context, fi
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.Translation, nil
+		return obj.TranslationID, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -1254,29 +1272,19 @@ func (ec *executionContext) _ExampleSentence_translation(ctx context.Context, fi
 		}
 		return graphql.Null
 	}
-	res := resTmp.(*model.Translation)
+	res := resTmp.(string)
 	fc.Result = res
-	return ec.marshalNTranslation2ᚖgithubᚗcomᚋsarᚑmichalᚋdictionaryᚑappᚋgraphᚋmodelᚐTranslation(ctx, field.Selections, res)
+	return ec.marshalNID2string(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_ExampleSentence_translation(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_ExampleSentence_translationID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "ExampleSentence",
 		Field:      field,
 		IsMethod:   false,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "translationID":
-				return ec.fieldContext_Translation_translationID(ctx, field)
-			case "englishTranslation":
-				return ec.fieldContext_Translation_englishTranslation(ctx, field)
-			case "word":
-				return ec.fieldContext_Translation_word(ctx, field)
-			case "exampleSentences":
-				return ec.fieldContext_Translation_exampleSentences(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type Translation", field.Name)
+			return nil, errors.New("field of type ID does not have child fields")
 		},
 	}
 	return fc, nil
@@ -1506,8 +1514,8 @@ func (ec *executionContext) fieldContext_Mutation_createTranslationWithWord(ctx 
 				return ec.fieldContext_Translation_translationID(ctx, field)
 			case "englishTranslation":
 				return ec.fieldContext_Translation_englishTranslation(ctx, field)
-			case "word":
-				return ec.fieldContext_Translation_word(ctx, field)
+			case "wordID":
+				return ec.fieldContext_Translation_wordID(ctx, field)
 			case "exampleSentences":
 				return ec.fieldContext_Translation_exampleSentences(ctx, field)
 			}
@@ -1542,7 +1550,7 @@ func (ec *executionContext) _Mutation_createTranslation(ctx context.Context, fie
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().CreateTranslation(rctx, fc.Args["wordID"].(string), fc.Args["englishTranslation"].(string))
+		return ec.resolvers.Mutation().CreateTranslation(rctx, fc.Args["wordID"].(string), fc.Args["englishTranslation"].(string), fc.Args["exampleSentences"].([]string))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -1571,8 +1579,8 @@ func (ec *executionContext) fieldContext_Mutation_createTranslation(ctx context.
 				return ec.fieldContext_Translation_translationID(ctx, field)
 			case "englishTranslation":
 				return ec.fieldContext_Translation_englishTranslation(ctx, field)
-			case "word":
-				return ec.fieldContext_Translation_word(ctx, field)
+			case "wordID":
+				return ec.fieldContext_Translation_wordID(ctx, field)
 			case "exampleSentences":
 				return ec.fieldContext_Translation_exampleSentences(ctx, field)
 			}
@@ -1636,8 +1644,8 @@ func (ec *executionContext) fieldContext_Mutation_updateTranslation(ctx context.
 				return ec.fieldContext_Translation_translationID(ctx, field)
 			case "englishTranslation":
 				return ec.fieldContext_Translation_englishTranslation(ctx, field)
-			case "word":
-				return ec.fieldContext_Translation_word(ctx, field)
+			case "wordID":
+				return ec.fieldContext_Translation_wordID(ctx, field)
 			case "exampleSentences":
 				return ec.fieldContext_Translation_exampleSentences(ctx, field)
 			}
@@ -1756,8 +1764,8 @@ func (ec *executionContext) fieldContext_Mutation_createExampleSentence(ctx cont
 				return ec.fieldContext_ExampleSentence_sentenceID(ctx, field)
 			case "sentenceText":
 				return ec.fieldContext_ExampleSentence_sentenceText(ctx, field)
-			case "translation":
-				return ec.fieldContext_ExampleSentence_translation(ctx, field)
+			case "translationID":
+				return ec.fieldContext_ExampleSentence_translationID(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type ExampleSentence", field.Name)
 		},
@@ -1819,8 +1827,8 @@ func (ec *executionContext) fieldContext_Mutation_updateExampleSentence(ctx cont
 				return ec.fieldContext_ExampleSentence_sentenceID(ctx, field)
 			case "sentenceText":
 				return ec.fieldContext_ExampleSentence_sentenceText(ctx, field)
-			case "translation":
-				return ec.fieldContext_ExampleSentence_translation(ctx, field)
+			case "translationID":
+				return ec.fieldContext_ExampleSentence_translationID(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type ExampleSentence", field.Name)
 		},
@@ -2109,8 +2117,8 @@ func (ec *executionContext) fieldContext_Query_translations(ctx context.Context,
 				return ec.fieldContext_Translation_translationID(ctx, field)
 			case "englishTranslation":
 				return ec.fieldContext_Translation_englishTranslation(ctx, field)
-			case "word":
-				return ec.fieldContext_Translation_word(ctx, field)
+			case "wordID":
+				return ec.fieldContext_Translation_wordID(ctx, field)
 			case "exampleSentences":
 				return ec.fieldContext_Translation_exampleSentences(ctx, field)
 			}
@@ -2171,8 +2179,8 @@ func (ec *executionContext) fieldContext_Query_translationByID(ctx context.Conte
 				return ec.fieldContext_Translation_translationID(ctx, field)
 			case "englishTranslation":
 				return ec.fieldContext_Translation_englishTranslation(ctx, field)
-			case "word":
-				return ec.fieldContext_Translation_word(ctx, field)
+			case "wordID":
+				return ec.fieldContext_Translation_wordID(ctx, field)
 			case "exampleSentences":
 				return ec.fieldContext_Translation_exampleSentences(ctx, field)
 			}
@@ -2236,8 +2244,8 @@ func (ec *executionContext) fieldContext_Query_exampleSentences(ctx context.Cont
 				return ec.fieldContext_ExampleSentence_sentenceID(ctx, field)
 			case "sentenceText":
 				return ec.fieldContext_ExampleSentence_sentenceText(ctx, field)
-			case "translation":
-				return ec.fieldContext_ExampleSentence_translation(ctx, field)
+			case "translationID":
+				return ec.fieldContext_ExampleSentence_translationID(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type ExampleSentence", field.Name)
 		},
@@ -2296,8 +2304,8 @@ func (ec *executionContext) fieldContext_Query_exampleSentenceByID(ctx context.C
 				return ec.fieldContext_ExampleSentence_sentenceID(ctx, field)
 			case "sentenceText":
 				return ec.fieldContext_ExampleSentence_sentenceText(ctx, field)
-			case "translation":
-				return ec.fieldContext_ExampleSentence_translation(ctx, field)
+			case "translationID":
+				return ec.fieldContext_ExampleSentence_translationID(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type ExampleSentence", field.Name)
 		},
@@ -2535,8 +2543,8 @@ func (ec *executionContext) fieldContext_Translation_englishTranslation(_ contex
 	return fc, nil
 }
 
-func (ec *executionContext) _Translation_word(ctx context.Context, field graphql.CollectedField, obj *model.Translation) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Translation_word(ctx, field)
+func (ec *executionContext) _Translation_wordID(ctx context.Context, field graphql.CollectedField, obj *model.Translation) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Translation_wordID(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -2549,7 +2557,7 @@ func (ec *executionContext) _Translation_word(ctx context.Context, field graphql
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.Word, nil
+		return obj.WordID, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -2561,27 +2569,19 @@ func (ec *executionContext) _Translation_word(ctx context.Context, field graphql
 		}
 		return graphql.Null
 	}
-	res := resTmp.(*model.Word)
+	res := resTmp.(string)
 	fc.Result = res
-	return ec.marshalNWord2ᚖgithubᚗcomᚋsarᚑmichalᚋdictionaryᚑappᚋgraphᚋmodelᚐWord(ctx, field.Selections, res)
+	return ec.marshalNID2string(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_Translation_word(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Translation_wordID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Translation",
 		Field:      field,
 		IsMethod:   false,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "wordID":
-				return ec.fieldContext_Word_wordID(ctx, field)
-			case "polishWord":
-				return ec.fieldContext_Word_polishWord(ctx, field)
-			case "translations":
-				return ec.fieldContext_Word_translations(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type Word", field.Name)
+			return nil, errors.New("field of type ID does not have child fields")
 		},
 	}
 	return fc, nil
@@ -2630,8 +2630,8 @@ func (ec *executionContext) fieldContext_Translation_exampleSentences(_ context.
 				return ec.fieldContext_ExampleSentence_sentenceID(ctx, field)
 			case "sentenceText":
 				return ec.fieldContext_ExampleSentence_sentenceText(ctx, field)
-			case "translation":
-				return ec.fieldContext_ExampleSentence_translation(ctx, field)
+			case "translationID":
+				return ec.fieldContext_ExampleSentence_translationID(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type ExampleSentence", field.Name)
 		},
@@ -2770,8 +2770,8 @@ func (ec *executionContext) fieldContext_Word_translations(_ context.Context, fi
 				return ec.fieldContext_Translation_translationID(ctx, field)
 			case "englishTranslation":
 				return ec.fieldContext_Translation_englishTranslation(ctx, field)
-			case "word":
-				return ec.fieldContext_Translation_word(ctx, field)
+			case "wordID":
+				return ec.fieldContext_Translation_wordID(ctx, field)
 			case "exampleSentences":
 				return ec.fieldContext_Translation_exampleSentences(ctx, field)
 			}
@@ -4761,8 +4761,8 @@ func (ec *executionContext) _ExampleSentence(ctx context.Context, sel ast.Select
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "translation":
-			out.Values[i] = ec._ExampleSentence_translation(ctx, field, obj)
+		case "translationID":
+			out.Values[i] = ec._ExampleSentence_translationID(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -5114,8 +5114,8 @@ func (ec *executionContext) _Translation(ctx context.Context, sel ast.SelectionS
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "word":
-			out.Values[i] = ec._Translation_word(ctx, field, obj)
+		case "wordID":
+			out.Values[i] = ec._Translation_wordID(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}

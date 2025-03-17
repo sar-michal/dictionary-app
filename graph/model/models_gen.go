@@ -3,9 +3,9 @@
 package model
 
 type ExampleSentence struct {
-	SentenceID   string       `json:"sentenceID"`
-	SentenceText string       `json:"sentenceText"`
-	Translation  *Translation `json:"translation"`
+	SentenceID    string `json:"sentenceID"`
+	SentenceText  string `json:"sentenceText"`
+	TranslationID string `json:"translationID"`
 }
 
 type Mutation struct {
@@ -17,7 +17,7 @@ type Query struct {
 type Translation struct {
 	TranslationID      string             `json:"translationID"`
 	EnglishTranslation string             `json:"englishTranslation"`
-	Word               *Word              `json:"word"`
+	WordID             string             `json:"wordID"`
 	ExampleSentences   []*ExampleSentence `json:"exampleSentences"`
 }
 
