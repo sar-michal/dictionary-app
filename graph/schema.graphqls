@@ -7,14 +7,14 @@ type Word {
 type Translation {
   translationID: ID!
   englishTranslation: String!
-  word: Word! # Reference to the associated word
+  wordID: ID! # reference to the word by its ID
   exampleSentences: [ExampleSentence!]!
 }
 
 type ExampleSentence {
   sentenceID: ID!
   sentenceText: String!
-  translation: Translation! # Reference to the associated translation
+  translationID: ID! # Reference to the translation by its ID
 }
 
 type Query {
@@ -37,7 +37,7 @@ type Mutation {
     englishTranslation: String!
     exampleSentences: [String!]
   ): Translation!
-  createTranslation(wordID: ID!, englishTranslation: String!): Translation!
+  createTranslation(wordID: ID!, englishTranslation: String!, exampleSentences: [String!]): Translation!
   updateTranslation(translationID: ID!, newEnglishTranslation: String!): Translation!
   deleteTranslation(translationID: ID!): Boolean!
 
