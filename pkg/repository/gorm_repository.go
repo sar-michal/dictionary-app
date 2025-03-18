@@ -22,28 +22,40 @@ func (r *GormRepository) GetOrCreateWord(polishWord string) (*models.Word, error
 	return &word, nil
 }
 
+// ListWords returns a slice of all words. Preloads translations and example sentences.
 func (r *GormRepository) ListWords() ([]models.Word, error) {
 	var words []models.Word
-
-	if err := r.DB.Find(&words).Error; err != nil {
+	err := r.DB.Preload("Translations.ExampleSentences").Find(&words).Error
+	if err != nil {
 		return nil, err
 	}
 	return words, nil
 }
 
+// GetWordByPolish finds a word. Preloads translations and example sentences.
 func (r *GormRepository) GetWordByPolish(polishWord string) (*models.Word, error) {
 	var word models.Word
 
-	if err := r.DB.Where("polish_word = ?", polishWord).First(&word).Error; err != nil {
+	err := r.DB.
+		Preload("Translations.ExampleSentences").
+		Where("polish_word = ?", polishWord).
+		First(&word).
+		Error
+	if err != nil {
 		return nil, err
 	}
 	return &word, nil
 }
 
+// GetWordByID finds a word. Preloads translations and example sentences.
 func (r *GormRepository) GetWordByID(wordID uint) (*models.Word, error) {
 	var word models.Word
 
-	if err := r.DB.First(&word, wordID).Error; err != nil {
+	err := r.DB.
+		Preload("Translations.ExampleSentences").
+		First(&word, wordID).
+		Error
+	if err != nil {
 		return nil, err
 	}
 	return &word, nil
@@ -106,19 +118,29 @@ func (r *GormRepository) DeleteWord(wordID uint) error {
 	return nil
 }
 
+// ListTranslations returns a slice of translations of a word.
+// Preloads example sentences.
 func (r *GormRepository) ListTranslations(wordID uint) ([]models.Translation, error) {
 	var translations []models.Translation
-
-	if err := r.DB.Where("word_id = ?", wordID).Find(&translations).Error; err != nil {
+	err := r.DB.
+		Where("word_id = ?", wordID).
+		Preload("ExampleSentences").
+		Find(&translations).
+		Error
+	if err != nil {
 		return nil, err
 	}
 	return translations, nil
 }
 
+// GetTranslationByID returns a translation. Preloads example sentences.
 func (r *GormRepository) GetTranslationByID(translationID uint) (*models.Translation, error) {
 	var translation models.Translation
-
-	if err := r.DB.First(&translation, translationID).Error; err != nil {
+	err := r.DB.
+		Preload("ExampleSentences").
+		First(&translation, translationID).
+		Error
+	if err != nil {
 		return nil, err
 	}
 	return &translation, nil
