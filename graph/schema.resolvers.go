@@ -14,7 +14,12 @@ import (
 
 // CreateWord is the resolver for the createWord field.
 func (r *mutationResolver) CreateWord(ctx context.Context, polishWord string) (*model.Word, error) {
-	word, err := r.Repo.GetOrCreateWord(polishWord)
+	validWord, err := validateInput(polishWord)
+	if err != nil {
+		return nil, fmt.Errorf("failed to validate polish word: %w", err)
+	}
+
+	word, err := r.Repo.GetOrCreateWord(validWord)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create word: %w", err)
 	}
@@ -28,7 +33,12 @@ func (r *mutationResolver) UpdateWord(ctx context.Context, wordID string, newPol
 		return nil, fmt.Errorf("invalid wordID: %w", err)
 	}
 
-	word, err := r.Repo.UpdateWord(uint(id), newPolishWord)
+	validWord, err := validateInput(newPolishWord)
+	if err != nil {
+		return nil, fmt.Errorf("failed to validate new polish word: %w", err)
+	}
+
+	word, err := r.Repo.UpdateWord(uint(id), validWord)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update word: %w", err)
 	}
@@ -50,18 +60,37 @@ func (r *mutationResolver) DeleteWord(ctx context.Context, wordID string) (bool,
 
 // CreateTranslationWithWord is the resolver for the createTranslationWithWord field.
 func (r *mutationResolver) CreateTranslationWithWord(ctx context.Context, polishWord string, englishTranslation string, exampleSentences []string) (*model.Translation, error) {
-	word, err := r.Repo.GetOrCreateWord(polishWord)
+	validWord, err := validateInput(polishWord)
+	if err != nil {
+		return nil, fmt.Errorf("failed to validate polish word: %w", err)
+	}
+
+	validTranslation, err := validateInput(englishTranslation)
+	if err != nil {
+		return nil, fmt.Errorf("failed to validate english translation: %w", err)
+	}
+
+	var validSentences []string
+	for _, sentence := range exampleSentences {
+		validSentence, err := validateInput(sentence)
+		if err != nil {
+			return nil, fmt.Errorf("failed to validate example sentence: %w", err)
+		}
+		validSentences = append(validSentences, validSentence)
+	}
+
+	word, err := r.Repo.GetOrCreateWord(validWord)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get or create word: %w", err)
 	}
 
-	translation, err := r.Repo.CreateTranslation(word.WordID, englishTranslation)
+	translation, err := r.Repo.CreateTranslation(word.WordID, validTranslation)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create translation: %w", err)
 	}
 
-	for _, sentence := range exampleSentences {
-		_, err := r.Repo.CreateExampleSentence(translation.TranslationID, sentence)
+	for _, validSentence := range validSentences {
+		_, err := r.Repo.CreateExampleSentence(translation.TranslationID, validSentence)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create example sentence: %w", err)
 		}
@@ -81,13 +110,27 @@ func (r *mutationResolver) CreateTranslation(ctx context.Context, wordID string,
 		return nil, fmt.Errorf("invalid wordID: %w", err)
 	}
 
-	translation, err := r.Repo.CreateTranslation(uint(id), englishTranslation)
+	validTranslation, err := validateInput(englishTranslation)
+	if err != nil {
+		return nil, fmt.Errorf("failed to validate english translation: %w", err)
+	}
+
+	var validSentences []string
+	for _, sentence := range exampleSentences {
+		validSentence, err := validateInput(sentence)
+		if err != nil {
+			return nil, fmt.Errorf("failed to validate example sentence: %w", err)
+		}
+		validSentences = append(validSentences, validSentence)
+	}
+
+	translation, err := r.Repo.CreateTranslation(uint(id), validTranslation)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create translation: %w", err)
 	}
 
-	for _, sentence := range exampleSentences {
-		_, err := r.Repo.CreateExampleSentence(translation.TranslationID, sentence)
+	for _, validSentence := range validSentences {
+		_, err := r.Repo.CreateExampleSentence(translation.TranslationID, validSentence)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create example sentence: %w", err)
 		}
@@ -106,7 +149,12 @@ func (r *mutationResolver) UpdateTranslation(ctx context.Context, translationID 
 		return nil, fmt.Errorf("invalid translationID: %w", err)
 	}
 
-	translation, err := r.Repo.UpdateTranslation(uint(id), newEnglishTranslation)
+	validTranslation, err := validateInput(newEnglishTranslation)
+	if err != nil {
+		return nil, fmt.Errorf("failed to validate english translation: %w", err)
+	}
+
+	translation, err := r.Repo.UpdateTranslation(uint(id), validTranslation)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update translation: %w", err)
 	}
@@ -133,7 +181,12 @@ func (r *mutationResolver) CreateExampleSentence(ctx context.Context, translatio
 		return nil, fmt.Errorf("invalid translationID: %w", err)
 	}
 
-	sentence, err := r.Repo.CreateExampleSentence(uint(id), sentenceText)
+	validSentence, err := validateInput(sentenceText)
+	if err != nil {
+		return nil, fmt.Errorf("failed to validate example sentence: %w", err)
+	}
+
+	sentence, err := r.Repo.CreateExampleSentence(uint(id), validSentence)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create example sentence: %w", err)
 	}
@@ -147,7 +200,12 @@ func (r *mutationResolver) UpdateExampleSentence(ctx context.Context, sentenceID
 		return nil, fmt.Errorf("invalid sentenceID: %w", err)
 	}
 
-	updatedSentence, err := r.Repo.UpdateExampleSentence(uint(id), newSentenceText)
+	validSentence, err := validateInput(newSentenceText)
+	if err != nil {
+		return nil, fmt.Errorf("failed to validate example sentence: %w", err)
+	}
+
+	updatedSentence, err := r.Repo.UpdateExampleSentence(uint(id), validSentence)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update example sentence: %w", err)
 	}
@@ -181,7 +239,12 @@ func (r *queryResolver) Words(ctx context.Context) ([]*model.Word, error) {
 
 // WordByPolish is the resolver for the wordByPolish field.
 func (r *queryResolver) WordByPolish(ctx context.Context, polishWord string) (*model.Word, error) {
-	word, err := r.Repo.GetWordByPolish(polishWord)
+	validWord, err := validateInput(polishWord)
+	if err != nil {
+		return nil, fmt.Errorf("failed to validate polish word: %w", err)
+	}
+
+	word, err := r.Repo.GetWordByPolish(validWord)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get word by polish: %w", err)
 	}
