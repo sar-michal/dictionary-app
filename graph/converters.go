@@ -16,6 +16,15 @@ func convertWord(word *models.Word) *model.Word {
 	}
 }
 
+// Converts a slice of models Word to a slice of GraphQL Word
+func convertWords(words []models.Word) []*model.Word {
+	gqlWords := make([]*model.Word, len(words))
+	for i, w := range words {
+		gqlWords[i] = convertWord(&w)
+	}
+	return gqlWords
+}
+
 // Convert a single models Translation to a GraphQL Translation
 func convertTranslation(translation *models.Translation) *model.Translation {
 	return &model.Translation{
