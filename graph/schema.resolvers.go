@@ -50,37 +50,123 @@ func (r *mutationResolver) DeleteWord(ctx context.Context, wordID string) (bool,
 
 // CreateTranslationWithWord is the resolver for the createTranslationWithWord field.
 func (r *mutationResolver) CreateTranslationWithWord(ctx context.Context, polishWord string, englishTranslation string, exampleSentences []string) (*model.Translation, error) {
-	panic(fmt.Errorf("not implemented: CreateTranslationWithWord - createTranslationWithWord"))
+	word, err := r.Repo.GetOrCreateWord(polishWord)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get or create word: %w", err)
+	}
+
+	translation, err := r.Repo.CreateTranslation(word.WordID, englishTranslation)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create translation: %w", err)
+	}
+
+	for _, sentence := range exampleSentences {
+		_, err := r.Repo.CreateExampleSentence(translation.TranslationID, sentence)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create example sentence: %w", err)
+		}
+	}
+
+	translation, err = r.Repo.GetTranslationByID(translation.TranslationID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve translation: %w", err)
+	}
+	return convertTranslation(translation), nil
 }
 
 // CreateTranslation is the resolver for the createTranslation field.
 func (r *mutationResolver) CreateTranslation(ctx context.Context, wordID string, englishTranslation string, exampleSentences []string) (*model.Translation, error) {
-	panic(fmt.Errorf("not implemented: CreateTranslation - createTranslation"))
+	id, err := strconv.ParseUint(wordID, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid wordID: %w", err)
+	}
+
+	translation, err := r.Repo.CreateTranslation(uint(id), englishTranslation)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create translation: %w", err)
+	}
+
+	for _, sentence := range exampleSentences {
+		_, err := r.Repo.CreateExampleSentence(translation.TranslationID, sentence)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create example sentence: %w", err)
+		}
+	}
+	translation, err = r.Repo.GetTranslationByID(translation.TranslationID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve translation: %w", err)
+	}
+	return convertTranslation(translation), nil
 }
 
 // UpdateTranslation is the resolver for the updateTranslation field.
 func (r *mutationResolver) UpdateTranslation(ctx context.Context, translationID string, newEnglishTranslation string) (*model.Translation, error) {
-	panic(fmt.Errorf("not implemented: UpdateTranslation - updateTranslation"))
+	id, err := strconv.ParseUint(translationID, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid translationID: %w", err)
+	}
+
+	translation, err := r.Repo.UpdateTranslation(uint(id), newEnglishTranslation)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update translation: %w", err)
+	}
+	return convertTranslation(translation), nil
 }
 
 // DeleteTranslation is the resolver for the deleteTranslation field.
 func (r *mutationResolver) DeleteTranslation(ctx context.Context, translationID string) (bool, error) {
-	panic(fmt.Errorf("not implemented: DeleteTranslation - deleteTranslation"))
+	id, err := strconv.ParseUint(translationID, 10, 64)
+	if err != nil {
+		return false, fmt.Errorf("invalid translationID: %w", err)
+	}
+
+	if err := r.Repo.DeleteTranslation(uint(id)); err != nil {
+		return false, fmt.Errorf("failed to delete translation: %w", err)
+	}
+	return true, nil
 }
 
 // CreateExampleSentence is the resolver for the createExampleSentence field.
 func (r *mutationResolver) CreateExampleSentence(ctx context.Context, translationID string, sentenceText string) (*model.ExampleSentence, error) {
-	panic(fmt.Errorf("not implemented: CreateExampleSentence - createExampleSentence"))
+	id, err := strconv.ParseUint(translationID, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid translationID: %w", err)
+	}
+
+	sentence, err := r.Repo.CreateExampleSentence(uint(id), sentenceText)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create example sentence: %w", err)
+	}
+	return convertExampleSentence(sentence), nil
 }
 
 // UpdateExampleSentence is the resolver for the updateExampleSentence field.
 func (r *mutationResolver) UpdateExampleSentence(ctx context.Context, sentenceID string, newSentenceText string) (*model.ExampleSentence, error) {
-	panic(fmt.Errorf("not implemented: UpdateExampleSentence - updateExampleSentence"))
+	id, err := strconv.ParseUint(sentenceID, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid sentenceID: %w", err)
+	}
+
+	updatedSentence, err := r.Repo.UpdateExampleSentence(uint(id), newSentenceText)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update example sentence: %w", err)
+	}
+
+	return convertExampleSentence(updatedSentence), nil
 }
 
 // DeleteExampleSentence is the resolver for the deleteExampleSentence field.
 func (r *mutationResolver) DeleteExampleSentence(ctx context.Context, sentenceID string) (bool, error) {
-	panic(fmt.Errorf("not implemented: DeleteExampleSentence - deleteExampleSentence"))
+	id, err := strconv.ParseUint(sentenceID, 10, 64)
+	if err != nil {
+		return false, fmt.Errorf("invalid sentenceID: %w", err)
+	}
+
+	if err := r.Repo.DeleteExampleSentence(uint(id)); err != nil {
+		return false, fmt.Errorf("failed to delete example sentence: %w", err)
+	}
+
+	return true, nil
 }
 
 // Words is the resolver for the words field.
@@ -90,11 +176,7 @@ func (r *queryResolver) Words(ctx context.Context) ([]*model.Word, error) {
 		return nil, fmt.Errorf("failed to list words: %w", err)
 	}
 
-	gqlWords := make([]*model.Word, len(words))
-	for i, w := range words {
-		gqlWords[i] = convertWord(&w)
-	}
-	return gqlWords, nil
+	return convertWords(words), nil
 }
 
 // WordByPolish is the resolver for the wordByPolish field.
@@ -122,22 +204,62 @@ func (r *queryResolver) WordByID(ctx context.Context, wordID string) (*model.Wor
 
 // Translations is the resolver for the translations field.
 func (r *queryResolver) Translations(ctx context.Context, wordID string) ([]*model.Translation, error) {
-	panic(fmt.Errorf("not implemented: Translations - translations"))
+	id, err := strconv.ParseUint(wordID, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid wordID: %w", err)
+	}
+
+	translations, err := r.Repo.ListTranslations(uint(id))
+	if err != nil {
+		return nil, fmt.Errorf("failed to list translations: %w", err)
+	}
+
+	return convertTranslations(translations), nil
 }
 
 // TranslationByID is the resolver for the translationByID field.
 func (r *queryResolver) TranslationByID(ctx context.Context, translationID string) (*model.Translation, error) {
-	panic(fmt.Errorf("not implemented: TranslationByID - translationByID"))
+	id, err := strconv.ParseUint(translationID, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid translationID: %w", err)
+	}
+
+	translation, err := r.Repo.GetTranslationByID(uint(id))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get translation by ID: %w", err)
+	}
+
+	return convertTranslation(translation), nil
 }
 
 // ExampleSentences is the resolver for the exampleSentences field.
 func (r *queryResolver) ExampleSentences(ctx context.Context, translationID string) ([]*model.ExampleSentence, error) {
-	panic(fmt.Errorf("not implemented: ExampleSentences - exampleSentences"))
+	id, err := strconv.ParseUint(translationID, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid translationID: %w", err)
+	}
+
+	sentences, err := r.Repo.ListExampleSentences(uint(id))
+	if err != nil {
+		return nil, fmt.Errorf("failed to list example sentences: %w", err)
+	}
+
+	return convertExampleSentences(sentences), nil
 }
 
 // ExampleSentenceByID is the resolver for the exampleSentenceByID field.
 func (r *queryResolver) ExampleSentenceByID(ctx context.Context, sentenceID string) (*model.ExampleSentence, error) {
-	panic(fmt.Errorf("not implemented: ExampleSentenceByID - exampleSentenceByID"))
+	id, err := strconv.ParseUint(sentenceID, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid sentenceID: %w", err)
+	}
+
+	sentence, err := r.Repo.GetExampleSentenceByID(uint(id))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get example sentence by ID: %w", err)
+	}
+
+	return convertExampleSentence(sentence), nil
 }
 
 // Mutation returns MutationResolver implementation.
