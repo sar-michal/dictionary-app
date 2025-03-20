@@ -22,28 +22,40 @@ func (r *GormRepository) GetOrCreateWord(polishWord string) (*models.Word, error
 	return &word, nil
 }
 
+// ListWords returns a slice of all words. Preloads translations and example sentences.
 func (r *GormRepository) ListWords() ([]models.Word, error) {
 	var words []models.Word
-
-	if err := r.DB.Find(&words).Error; err != nil {
+	err := r.DB.Preload("Translations.ExampleSentences").Find(&words).Error
+	if err != nil {
 		return nil, err
 	}
 	return words, nil
 }
 
+// GetWordByPolish finds a word. Preloads translations and example sentences.
 func (r *GormRepository) GetWordByPolish(polishWord string) (*models.Word, error) {
 	var word models.Word
 
-	if err := r.DB.Where("polish_word = ?", polishWord).First(&word).Error; err != nil {
+	err := r.DB.
+		Preload("Translations.ExampleSentences").
+		Where("polish_word = ?", polishWord).
+		First(&word).
+		Error
+	if err != nil {
 		return nil, err
 	}
 	return &word, nil
 }
 
+// GetWordByID finds a word. Preloads translations and example sentences.
 func (r *GormRepository) GetWordByID(wordID uint) (*models.Word, error) {
 	var word models.Word
 
-	if err := r.DB.First(&word, wordID).Error; err != nil {
+	err := r.DB.
+		Preload("Translations.ExampleSentences").
+		First(&word, wordID).
+		Error
+	if err != nil {
 		return nil, err
 	}
 	return &word, nil
@@ -106,31 +118,43 @@ func (r *GormRepository) DeleteWord(wordID uint) error {
 	return nil
 }
 
+// ListTranslations returns a slice of translations of a word.
+// Preloads example sentences.
 func (r *GormRepository) ListTranslations(wordID uint) ([]models.Translation, error) {
 	var translations []models.Translation
-
-	if err := r.DB.Where("word_id = ?", wordID).Find(&translations).Error; err != nil {
+	err := r.DB.
+		Where("word_id = ?", wordID).
+		Preload("ExampleSentences").
+		Find(&translations).
+		Error
+	if err != nil {
 		return nil, err
 	}
 	return translations, nil
 }
 
+// GetTranslationByID returns a translation. Preloads example sentences.
 func (r *GormRepository) GetTranslationByID(translationID uint) (*models.Translation, error) {
 	var translation models.Translation
-
-	if err := r.DB.First(&translation, translationID).Error; err != nil {
+	err := r.DB.
+		Preload("ExampleSentences").
+		First(&translation, translationID).
+		Error
+	if err != nil {
 		return nil, err
 	}
 	return &translation, nil
 }
 
-func (r *GormRepository) CreateTranslation(wordID uint, englishTranslation string) (*models.Translation, error) {
-	translation := models.Translation{
-		WordID:             wordID,
-		EnglishTranslation: englishTranslation,
-	}
-
-	if err := r.DB.Create(&translation).Error; err != nil {
+func (r *GormRepository) GetOrCreateTranslation(wordID uint, englishTranslation string) (*models.Translation, error) {
+	var translation models.Translation
+	err := r.DB.
+		Where("word_id = ? AND english_translation = ?", wordID, englishTranslation).
+		FirstOrCreate(&translation, models.Translation{
+			WordID:             wordID,
+			EnglishTranslation: englishTranslation,
+		}).Error
+	if err != nil {
 		return nil, err
 	}
 	return &translation, nil
@@ -193,12 +217,15 @@ func (r *GormRepository) GetExampleSentenceByID(sentenceID uint) (*models.Exampl
 	return &sentence, nil
 }
 
-func (r *GormRepository) CreateExampleSentence(translationID uint, sentenceText string) (*models.ExampleSentence, error) {
-	sentence := models.ExampleSentence{
-		TranslationID: translationID,
-		SentenceText:  sentenceText,
-	}
-	if err := r.DB.Create(&sentence).Error; err != nil {
+func (r *GormRepository) GetOrCreateExampleSentence(translationID uint, sentenceText string) (*models.ExampleSentence, error) {
+	var sentence models.ExampleSentence
+	err := r.DB.
+		Where("translation_id = ? AND sentence_text = ?", translationID, sentenceText).
+		FirstOrCreate(&sentence, models.ExampleSentence{
+			TranslationID: translationID,
+			SentenceText:  sentenceText,
+		}).Error
+	if err != nil {
 		return nil, err
 	}
 	return &sentence, nil
@@ -223,4 +250,12 @@ func (r *GormRepository) DeleteExampleSentence(sentenceID uint) error {
 		return err
 	}
 	return nil
+}
+
+// Transaction executes the provided function within a database transaction.
+func (r *GormRepository) Transaction(fn func(repo Repository) error) error {
+	return r.DB.Transaction(func(tx *gorm.DB) error {
+		txRepo := &GormRepository{DB: tx}
+		return fn(txRepo)
+	})
 }
