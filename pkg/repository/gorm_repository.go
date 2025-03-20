@@ -251,3 +251,11 @@ func (r *GormRepository) DeleteExampleSentence(sentenceID uint) error {
 	}
 	return nil
 }
+
+// Transaction executes the provided function within a database transaction.
+func (r *GormRepository) Transaction(fn func(repo Repository) error) error {
+	return r.DB.Transaction(func(tx *gorm.DB) error {
+		txRepo := &GormRepository{DB: tx}
+		return fn(txRepo)
+	})
+}
