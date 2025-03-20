@@ -1,0 +1,47 @@
+type Word {
+  wordID: ID!
+  polishWord: String!
+  translations: [Translation!]!
+}
+
+type Translation {
+  translationID: ID!
+  englishTranslation: String!
+  wordID: ID! # reference to the word by its ID
+  exampleSentences: [ExampleSentence!]!
+}
+
+type ExampleSentence {
+  sentenceID: ID!
+  sentenceText: String!
+  translationID: ID! # Reference to the translation by its ID
+}
+
+type Query {
+  words: [Word!]!
+  wordByPolish(polishWord: String!): Word
+  wordByID(wordID: ID!): Word
+  translations(wordID: ID!): [Translation!]!
+  translationByID(translationID: ID!): Translation
+  exampleSentences(translationID: ID!): [ExampleSentence!]!
+  exampleSentenceByID(sentenceID: ID!): ExampleSentence
+}
+
+type Mutation {
+  createWord(polishWord: String!): Word!
+  updateWord(wordID: ID!, newPolishWord: String!): Word!
+  deleteWord(wordID: ID!): Boolean!
+
+  createTranslationWithWord(
+    polishWord: String!
+    englishTranslation: String!
+    exampleSentences: [String!]
+  ): Translation!
+  createTranslation(wordID: ID!, englishTranslation: String!, exampleSentences: [String!]): Translation!
+  updateTranslation(translationID: ID!, newEnglishTranslation: String!): Translation!
+  deleteTranslation(translationID: ID!): Boolean!
+
+  createExampleSentence(translationID: ID!, sentenceText: String!): ExampleSentence!
+  updateExampleSentence(sentenceID: ID!, newSentenceText: String!): ExampleSentence!
+  deleteExampleSentence(sentenceID: ID!): Boolean!
+}

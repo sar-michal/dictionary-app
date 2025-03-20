@@ -1,0 +1,18 @@
+services:  
+  test_db:
+    image: postgres:17
+    container_name: test_dictionary_db
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    ports:
+      - "${DB_PORT}:5432"  
+    networks:
+      - dictionary-network
+    tmpfs:
+      - /var/lib/postgresql/data
+
+networks:
+  dictionary-network:
