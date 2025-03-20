@@ -146,13 +146,15 @@ func (r *GormRepository) GetTranslationByID(translationID uint) (*models.Transla
 	return &translation, nil
 }
 
-func (r *GormRepository) CreateTranslation(wordID uint, englishTranslation string) (*models.Translation, error) {
-	translation := models.Translation{
-		WordID:             wordID,
-		EnglishTranslation: englishTranslation,
-	}
-
-	if err := r.DB.Create(&translation).Error; err != nil {
+func (r *GormRepository) GetOrCreateTranslation(wordID uint, englishTranslation string) (*models.Translation, error) {
+	var translation models.Translation
+	err := r.DB.
+		Where("word_id = ? AND english_translation = ?", wordID, englishTranslation).
+		FirstOrCreate(&translation, models.Translation{
+			WordID:             wordID,
+			EnglishTranslation: englishTranslation,
+		}).Error
+	if err != nil {
 		return nil, err
 	}
 	return &translation, nil
@@ -215,12 +217,15 @@ func (r *GormRepository) GetExampleSentenceByID(sentenceID uint) (*models.Exampl
 	return &sentence, nil
 }
 
-func (r *GormRepository) CreateExampleSentence(translationID uint, sentenceText string) (*models.ExampleSentence, error) {
-	sentence := models.ExampleSentence{
-		TranslationID: translationID,
-		SentenceText:  sentenceText,
-	}
-	if err := r.DB.Create(&sentence).Error; err != nil {
+func (r *GormRepository) GetOrCreateExampleSentence(translationID uint, sentenceText string) (*models.ExampleSentence, error) {
+	var sentence models.ExampleSentence
+	err := r.DB.
+		Where("translation_id = ? AND sentence_text = ?", translationID, sentenceText).
+		FirstOrCreate(&sentence, models.ExampleSentence{
+			TranslationID: translationID,
+			SentenceText:  sentenceText,
+		}).Error
+	if err != nil {
 		return nil, err
 	}
 	return &sentence, nil

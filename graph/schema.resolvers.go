@@ -58,7 +58,7 @@ func (r *mutationResolver) DeleteWord(ctx context.Context, wordID string) (bool,
 	return true, nil
 }
 
-// CreateTranslationWithWord is the resolver for the createTranslationWithWord field.
+// CreateTranslationWithWord is the resolver for the CreateTranslationWithWord field.
 func (r *mutationResolver) CreateTranslationWithWord(ctx context.Context, polishWord string, englishTranslation string, exampleSentences []string) (*model.Translation, error) {
 	validWord, err := validateInput(polishWord)
 	if err != nil {
@@ -84,13 +84,13 @@ func (r *mutationResolver) CreateTranslationWithWord(ctx context.Context, polish
 		return nil, fmt.Errorf("failed to get or create word: %w", err)
 	}
 
-	translation, err := r.Repo.CreateTranslation(word.WordID, validTranslation)
+	translation, err := r.Repo.GetOrCreateTranslation(word.WordID, validTranslation)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create translation: %w", err)
 	}
 
 	for _, validSentence := range validSentences {
-		_, err := r.Repo.CreateExampleSentence(translation.TranslationID, validSentence)
+		_, err := r.Repo.GetOrCreateExampleSentence(translation.TranslationID, validSentence)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create example sentence: %w", err)
 		}
@@ -103,7 +103,7 @@ func (r *mutationResolver) CreateTranslationWithWord(ctx context.Context, polish
 	return convertTranslation(translation), nil
 }
 
-// CreateTranslation is the resolver for the createTranslation field.
+// CreateTranslation is the resolver for the CreateTranslation field.
 func (r *mutationResolver) CreateTranslation(ctx context.Context, wordID string, englishTranslation string, exampleSentences []string) (*model.Translation, error) {
 	id, err := strconv.ParseUint(wordID, 10, 64)
 	if err != nil {
@@ -124,13 +124,13 @@ func (r *mutationResolver) CreateTranslation(ctx context.Context, wordID string,
 		validSentences = append(validSentences, validSentence)
 	}
 
-	translation, err := r.Repo.CreateTranslation(uint(id), validTranslation)
+	translation, err := r.Repo.GetOrCreateTranslation(uint(id), validTranslation)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create translation: %w", err)
 	}
 
 	for _, validSentence := range validSentences {
-		_, err := r.Repo.CreateExampleSentence(translation.TranslationID, validSentence)
+		_, err := r.Repo.GetOrCreateExampleSentence(translation.TranslationID, validSentence)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create example sentence: %w", err)
 		}
@@ -174,7 +174,7 @@ func (r *mutationResolver) DeleteTranslation(ctx context.Context, translationID 
 	return true, nil
 }
 
-// CreateExampleSentence is the resolver for the createExampleSentence field.
+// CreateExampleSentence is the resolver for the CreateExampleSentence field.
 func (r *mutationResolver) CreateExampleSentence(ctx context.Context, translationID string, sentenceText string) (*model.ExampleSentence, error) {
 	id, err := strconv.ParseUint(translationID, 10, 64)
 	if err != nil {
@@ -186,7 +186,7 @@ func (r *mutationResolver) CreateExampleSentence(ctx context.Context, translatio
 		return nil, fmt.Errorf("failed to validate example sentence: %w", err)
 	}
 
-	sentence, err := r.Repo.CreateExampleSentence(uint(id), validSentence)
+	sentence, err := r.Repo.GetOrCreateExampleSentence(uint(id), validSentence)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create example sentence: %w", err)
 	}
