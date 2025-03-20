@@ -1,6 +1,7 @@
 package repository_test
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"sync"
@@ -44,18 +45,12 @@ func TestMain(m *testing.M) {
 // Helper function. It creates a repository instance that uses a transaction.
 // It rolls the transaction back once the function is done.
 func withTransaction(t *testing.T, fn func(txRepo repository.Repository)) {
-	// Attempt a type assertion to access the underlying *gorm.DB.
-	gormRepo, ok := repo.(*repository.GormRepository)
-	require.True(t, ok, "Expected repository to be of type *GormRepository. Failed to begin transaction")
-
-	tx := gormRepo.DB.Begin()
-	require.NoError(t, tx.Error, "Failed to begin transaction")
-	defer func() {
-		require.NoError(t, tx.Rollback().Error, "Failed to rollback transaction")
-	}()
-
-	tempRepo := &repository.GormRepository{DB: tx}
-	fn(tempRepo)
+	err := repo.Transaction(func(txRepo repository.Repository) error {
+		fn(txRepo)
+		// Return a sentinel error to force rollback.
+		return fmt.Errorf("Rollback for test")
+	})
+	require.Error(t, err, "Rollback should always happen")
 }
 
 // Helper function. Truncates all tables and restarts sequences associated with table columns.
