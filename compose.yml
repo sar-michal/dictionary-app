@@ -1,0 +1,21 @@
+services:
+  db:
+    image: postgres:17
+    container_name: dictionary_db
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    ports:
+      - "${DB_PORT}:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - dictionary-network
+
+volumes:
+  db_data:
+
+networks:
+  dictionary-network:
