@@ -10,6 +10,8 @@ import (
 	"strconv"
 
 	"github.com/sar-michal/dictionary-app/graph/model"
+	"github.com/sar-michal/dictionary-app/pkg/models"
+	"github.com/sar-michal/dictionary-app/pkg/repository"
 )
 
 // CreateWord is the resolver for the createWord field.
@@ -79,28 +81,37 @@ func (r *mutationResolver) CreateTranslationWithWord(ctx context.Context, polish
 		validSentences = append(validSentences, validSentence)
 	}
 
-	word, err := r.Repo.GetOrCreateWord(validWord)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get or create word: %w", err)
-	}
-
-	translation, err := r.Repo.GetOrCreateTranslation(word.WordID, validTranslation)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create translation: %w", err)
-	}
-
-	for _, validSentence := range validSentences {
-		_, err := r.Repo.GetOrCreateExampleSentence(translation.TranslationID, validSentence)
+	var resultTranslation *models.Translation
+	err = r.Repo.Transaction(func(txRepo repository.Repository) error {
+		word, err := txRepo.GetOrCreateWord(validWord)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create example sentence: %w", err)
+			return fmt.Errorf("failed to get or create word: %w", err)
 		}
+
+		translation, err := txRepo.GetOrCreateTranslation(word.WordID, validTranslation)
+		if err != nil {
+			return fmt.Errorf("failed to create translation: %w", err)
+		}
+
+		for _, validSentence := range validSentences {
+			_, err := txRepo.GetOrCreateExampleSentence(translation.TranslationID, validSentence)
+			if err != nil {
+				return fmt.Errorf("failed to create example sentence: %w", err)
+			}
+		}
+
+		translation, err = txRepo.GetTranslationByID(translation.TranslationID)
+		if err != nil {
+			return fmt.Errorf("failed to retrieve translation: %w", err)
+		}
+		resultTranslation = translation
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("transaction failed: %w", err)
 	}
 
-	translation, err = r.Repo.GetTranslationByID(translation.TranslationID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve translation: %w", err)
-	}
-	return convertTranslation(translation), nil
+	return convertTranslation(resultTranslation), nil
 }
 
 // CreateTranslation is the resolver for the CreateTranslation field.
@@ -124,22 +135,32 @@ func (r *mutationResolver) CreateTranslation(ctx context.Context, wordID string,
 		validSentences = append(validSentences, validSentence)
 	}
 
-	translation, err := r.Repo.GetOrCreateTranslation(uint(id), validTranslation)
+	var resultTranslation *models.Translation
+	err = r.Repo.Transaction(func(txRepo repository.Repository) error {
+		translation, err := txRepo.GetOrCreateTranslation(uint(id), validTranslation)
+		if err != nil {
+			return fmt.Errorf("failed to create translation: %w", err)
+		}
+
+		for _, validSentence := range validSentences {
+			_, err := txRepo.GetOrCreateExampleSentence(translation.TranslationID, validSentence)
+			if err != nil {
+				return fmt.Errorf("failed to create example sentence: %w", err)
+			}
+		}
+
+		translation, err = txRepo.GetTranslationByID(translation.TranslationID)
+		if err != nil {
+			return fmt.Errorf("failed to retrieve translation: %w", err)
+		}
+		resultTranslation = translation
+		return nil
+	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to create translation: %w", err)
+		return nil, fmt.Errorf("transaction failed: %w", err)
 	}
 
-	for _, validSentence := range validSentences {
-		_, err := r.Repo.GetOrCreateExampleSentence(translation.TranslationID, validSentence)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create example sentence: %w", err)
-		}
-	}
-	translation, err = r.Repo.GetTranslationByID(translation.TranslationID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve translation: %w", err)
-	}
-	return convertTranslation(translation), nil
+	return convertTranslation(resultTranslation), nil
 }
 
 // UpdateTranslation is the resolver for the updateTranslation field.
