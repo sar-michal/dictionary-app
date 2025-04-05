@@ -19,10 +19,14 @@ var repo repository.Repository
 
 func TestMain(m *testing.M) {
 
-	os.Setenv("GO_ENV", "test")
-	config, err := config.LoadConfig()
-	if err != nil {
-		log.Fatalf("Failed to load config: %v", err)
+	// Hardcoded config to prevent accidents
+	config := &config.Config{
+		Host:     "localhost",
+		User:     "testuser",
+		Password: "testpass",
+		DBName:   "testdb",
+		Port:     "5431",
+		SSLMode:  "disable",
 	}
 
 	db, err := storage.NewConnection(config)
