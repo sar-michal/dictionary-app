@@ -318,6 +318,58 @@ func TestDeleteExampleSentence(t *testing.T) {
 		assert.Error(t, err, "Expected Error Retrieving Deleted Example Sentence")
 	})
 }
+func TestConcurrentGetOrCreateWords(t *testing.T) {
+	// Clean up the database
+	CleanupRepository(t)
+	defer CleanupRepository(t)
+
+	wordsToCreate := []string{
+		"kot", "kot", "kot",
+		"pies", "pies", "pies",
+		"lis", "lis", "lis",
+	}
+	toCreateLen := len(wordsToCreate)
+	expectedUnique := toCreateLen - 6
+
+	var wg sync.WaitGroup
+	wg.Add(len(wordsToCreate))
+	errCh := make(chan error, toCreateLen)
+
+	var mu sync.Mutex
+	cond := sync.NewCond(&mu)
+	ready := 0
+
+	// Launch concurrent goroutines to create words.
+	for _, word := range wordsToCreate {
+		word := word
+		go func() {
+			mu.Lock()
+			ready++
+			if ready < toCreateLen {
+				cond.Wait()
+			} else {
+				cond.Broadcast()
+			}
+			mu.Unlock()
+
+			_, err := repo.GetOrCreateWord(word)
+			if err != nil {
+				errCh <- err
+			}
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+	close(errCh)
+
+	for err := range errCh {
+		require.NoError(t, err, "GetOrCreateWord should not error in concurrent execution")
+	}
+
+	createdWords, err := repo.ListWords()
+	require.NoError(t, err, "ListWords should not error")
+	assert.Equal(t, expectedUnique, len(createdWords), "Expected number of words to match")
+}
 func TestConcurrentGetOrCreateTranslations(t *testing.T) {
 	// Clean up the database
 	CleanupRepository(t)
@@ -326,7 +378,11 @@ func TestConcurrentGetOrCreateTranslations(t *testing.T) {
 	word, err := repo.GetOrCreateWord("kot")
 	require.NoError(t, err, "GetOrCreateWord should not error")
 
-	translationsToCreate := []string{"cat", "cat", "cat", "kitty", "kitty", "kitty", "pussy", "pussy", "pussy"}
+	translationsToCreate := []string{
+		"cat", "cat", "cat",
+		"kitty", "kitty", "kitty",
+		"pussy", "pussy", "pussy",
+	}
 	toCreateLen := len(translationsToCreate)
 	expectedUnique := toCreateLen - 6
 
@@ -381,15 +437,9 @@ func TestConcurrentGetOrCreateExampleSentences(t *testing.T) {
 	require.NoError(t, err, "GetOrCreateTranslation should not error")
 
 	sentencesToCreate := []string{
-		"The dog barks.",
-		"The dog barks.",
-		"The dog barks.",
-		"The dog runs.",
-		"The dog runs.",
-		"The dog runs.",
-		"The dog eats.",
-		"The dog eats.",
-		"The dog eats.",
+		"The dog barks.", "The dog barks.", "The dog barks.",
+		"The dog runs.", "The dog runs.", "The dog runs.",
+		"The dog eats.", "The dog eats.", "The dog eats.",
 	}
 	toCreateLen := len(sentencesToCreate)
 	expectedUnique := toCreateLen - 6
