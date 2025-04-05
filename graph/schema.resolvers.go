@@ -71,8 +71,7 @@ func (r *mutationResolver) CreateTranslationWithWord(ctx context.Context, polish
 	if err != nil {
 		return nil, fmt.Errorf("failed to validate english translation: %w", err)
 	}
-
-	var validSentences []string
+	validSentences := make([]string, 0, len(exampleSentences))
 	for _, sentence := range exampleSentences {
 		validSentence, err := validateInput(sentence)
 		if err != nil {
@@ -126,7 +125,7 @@ func (r *mutationResolver) CreateTranslation(ctx context.Context, wordID string,
 		return nil, fmt.Errorf("failed to validate english translation: %w", err)
 	}
 
-	var validSentences []string
+	validSentences := make([]string, 0, len(exampleSentences))
 	for _, sentence := range exampleSentences {
 		validSentence, err := validateInput(sentence)
 		if err != nil {
