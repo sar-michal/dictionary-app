@@ -308,7 +308,7 @@ func TestDeleteExampleSentence(t *testing.T) {
 		translation, err := txRepo.GetOrCreateTranslation(word.WordID, "sheep")
 		require.NoError(t, err, "GetOrCreateTranslation Should Not Error")
 
-		sentence, err := txRepo.GetOrCreateExampleSentence(translation.TranslationID, "The fluffly sheep is sleeping.")
+		sentence, err := txRepo.GetOrCreateExampleSentence(translation.TranslationID, "The fluffy sheep is sleeping.")
 		require.NoError(t, err, "GetOrCreateExampleSentence Should Not Error")
 
 		err = txRepo.DeleteExampleSentence(sentence.SentenceID)
@@ -318,6 +318,58 @@ func TestDeleteExampleSentence(t *testing.T) {
 		assert.Error(t, err, "Expected Error Retrieving Deleted Example Sentence")
 	})
 }
+func TestConcurrentGetOrCreateWords(t *testing.T) {
+	// Clean up the database
+	CleanupRepository(t)
+	defer CleanupRepository(t)
+
+	wordsToCreate := []string{
+		"kot", "kot", "kot",
+		"pies", "pies", "pies",
+		"lis", "lis", "lis",
+	}
+	toCreateLen := len(wordsToCreate)
+	expectedUnique := toCreateLen - 6
+
+	var wg sync.WaitGroup
+	wg.Add(len(wordsToCreate))
+	errCh := make(chan error, toCreateLen)
+
+	var mu sync.Mutex
+	cond := sync.NewCond(&mu)
+	ready := 0
+
+	// Launch concurrent goroutines to create words.
+	for _, word := range wordsToCreate {
+		word := word
+		go func() {
+			mu.Lock()
+			ready++
+			if ready < toCreateLen {
+				cond.Wait()
+			} else {
+				cond.Broadcast()
+			}
+			mu.Unlock()
+
+			_, err := repo.GetOrCreateWord(word)
+			if err != nil {
+				errCh <- err
+			}
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+	close(errCh)
+
+	for err := range errCh {
+		require.NoError(t, err, "GetOrCreateWord should not error in concurrent execution")
+	}
+
+	createdWords, err := repo.ListWords()
+	require.NoError(t, err, "ListWords should not error")
+	assert.Equal(t, expectedUnique, len(createdWords), "Expected number of words to match")
+}
 func TestConcurrentGetOrCreateTranslations(t *testing.T) {
 	// Clean up the database
 	CleanupRepository(t)
@@ -326,16 +378,35 @@ func TestConcurrentGetOrCreateTranslations(t *testing.T) {
 	word, err := repo.GetOrCreateWord("kot")
 	require.NoError(t, err, "GetOrCreateWord should not error")
 
-	translationsToCreate := []string{"cat", "kitty", "feline", "mouser", "pussy"}
+	translationsToCreate := []string{
+		"cat", "cat", "cat",
+		"kitty", "kitty", "kitty",
+		"pussy", "pussy", "pussy",
+	}
+	toCreateLen := len(translationsToCreate)
+	expectedUnique := toCreateLen - 6
 
 	var wg sync.WaitGroup
 	wg.Add(len(translationsToCreate))
-	errCh := make(chan error, len(translationsToCreate))
+	errCh := make(chan error, toCreateLen)
+
+	var mu sync.Mutex
+	cond := sync.NewCond(&mu)
+	ready := 0
 
 	// Launch concurrent goroutines to create translations.
 	for _, trans := range translationsToCreate {
 		trans := trans
 		go func() {
+			mu.Lock()
+			ready++
+			if ready < toCreateLen {
+				cond.Wait()
+			} else {
+				cond.Broadcast()
+			}
+			mu.Unlock()
+
 			_, err := repo.GetOrCreateTranslation(word.WordID, trans)
 			if err != nil {
 				errCh <- err
@@ -352,7 +423,7 @@ func TestConcurrentGetOrCreateTranslations(t *testing.T) {
 
 	createdTranslations, err := repo.ListTranslations(word.WordID)
 	require.NoError(t, err, "ListTranslations should not error")
-	assert.Equal(t, len(translationsToCreate), len(createdTranslations), "Expected number of translations to match")
+	assert.Equal(t, expectedUnique, len(createdTranslations), "Expected number of translations to match")
 }
 func TestConcurrentGetOrCreateExampleSentences(t *testing.T) {
 	// Clean up the database
@@ -366,21 +437,30 @@ func TestConcurrentGetOrCreateExampleSentences(t *testing.T) {
 	require.NoError(t, err, "GetOrCreateTranslation should not error")
 
 	sentencesToCreate := []string{
-		"The dog barks.",
-		"The dog runs.",
-		"The dog eats.",
-		"The dog sleeps.",
-		"The dog plays.",
+		"The dog barks.", "The dog barks.", "The dog barks.",
+		"The dog runs.", "The dog runs.", "The dog runs.",
+		"The dog eats.", "The dog eats.", "The dog eats.",
 	}
-
+	toCreateLen := len(sentencesToCreate)
+	expectedUnique := toCreateLen - 6
 	var wg sync.WaitGroup
-	wg.Add(len(sentencesToCreate))
-	errCh := make(chan error, len(sentencesToCreate))
-
+	wg.Add(toCreateLen)
+	errCh := make(chan error, toCreateLen)
+	var mu sync.Mutex
+	cond := sync.NewCond(&mu)
+	ready := 0
 	// Launch concurrent goroutines to create example sentences.
 	for _, sentence := range sentencesToCreate {
 		sentence := sentence
 		go func() {
+			mu.Lock()
+			ready++
+			if ready < toCreateLen {
+				cond.Wait()
+			} else {
+				cond.Broadcast()
+			}
+			mu.Unlock()
 			_, err := repo.GetOrCreateExampleSentence(translation.TranslationID, sentence)
 			if err != nil {
 				errCh <- err
@@ -397,5 +477,5 @@ func TestConcurrentGetOrCreateExampleSentences(t *testing.T) {
 
 	examples, err := repo.ListExampleSentences(translation.TranslationID)
 	require.NoError(t, err, "ListExampleSentences should not error")
-	assert.Equal(t, len(sentencesToCreate), len(examples), "Expected number of example sentences to match")
+	assert.Equal(t, expectedUnique, len(examples), "Expected number of example sentences to match")
 }
