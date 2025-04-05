@@ -3,6 +3,7 @@ package repository
 import (
 	"github.com/sar-michal/dictionary-app/pkg/models"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type GormRepository struct {
@@ -10,12 +11,19 @@ type GormRepository struct {
 }
 
 func (r *GormRepository) GetOrCreateWord(polishWord string) (*models.Word, error) {
-	var word models.Word
-	err := r.DB.
-		Where("polish_word = ?", polishWord).
-		FirstOrCreate(&word, models.Word{PolishWord: polishWord}).
-		Error
-
+	word := models.Word{
+		PolishWord: polishWord,
+	}
+	// Attempt to insert. On conflict, do nothing.
+	err := r.DB.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "polish_word"}},
+		DoNothing: true,
+	}).Create(&word).Error
+	if err != nil {
+		return nil, err
+	}
+	// Retrieves the word from database.
+	err = r.DB.Where("polish_word = ?", polishWord).First(&word).Error
 	if err != nil {
 		return nil, err
 	}
@@ -147,13 +155,23 @@ func (r *GormRepository) GetTranslationByID(translationID uint) (*models.Transla
 }
 
 func (r *GormRepository) GetOrCreateTranslation(wordID uint, englishTranslation string) (*models.Translation, error) {
-	var translation models.Translation
-	err := r.DB.
+	translation := models.Translation{
+		WordID:             wordID,
+		EnglishTranslation: englishTranslation,
+	}
+	// Attempt to insert. On conflict, do nothing.
+	err := r.DB.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "word_id"}, {Name: "english_translation"}},
+		DoNothing: true,
+	}).Create(&translation).Error
+	if err != nil {
+		return nil, err
+	}
+	// Retrieve the translation from database.
+	err = r.DB.
 		Where("word_id = ? AND english_translation = ?", wordID, englishTranslation).
-		FirstOrCreate(&translation, models.Translation{
-			WordID:             wordID,
-			EnglishTranslation: englishTranslation,
-		}).Error
+		First(&translation).
+		Error
 	if err != nil {
 		return nil, err
 	}
@@ -218,13 +236,23 @@ func (r *GormRepository) GetExampleSentenceByID(sentenceID uint) (*models.Exampl
 }
 
 func (r *GormRepository) GetOrCreateExampleSentence(translationID uint, sentenceText string) (*models.ExampleSentence, error) {
-	var sentence models.ExampleSentence
-	err := r.DB.
+	sentence := models.ExampleSentence{
+		TranslationID: translationID,
+		SentenceText:  sentenceText,
+	}
+	// Attempt to insert. On conflict, do nothing.
+	err := r.DB.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "translation_id"}, {Name: "sentence_text"}},
+		DoNothing: true,
+	}).Create(&sentence).Error
+	if err != nil {
+		return nil, err
+	}
+	// Retrieves the sentence from database.
+	err = r.DB.
 		Where("translation_id = ? AND sentence_text = ?", translationID, sentenceText).
-		FirstOrCreate(&sentence, models.ExampleSentence{
-			TranslationID: translationID,
-			SentenceText:  sentenceText,
-		}).Error
+		First(&sentence).
+		Error
 	if err != nil {
 		return nil, err
 	}
