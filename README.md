@@ -73,11 +73,23 @@ The Dictionary App is an application designed to collect translations of Polish 
     ```sh
     docker-compose --file compose.test.yml --env-file .env.test up -d
     ```
-3. **Run the tests:**
+3. **Adjust the hardcoded Config in /pkg/repository/repository_test.go (if .env.test differs from the example one):**
+    ```go
+    // Hardcoded config to prevent accidents
+	config := &config.Config{
+		Host:     "localhost",
+		User:     "testuser",
+		Password: "testpass",
+		DBName:   "testdb",
+		Port:     "5431",
+		SSLMode:  "disable",
+	}
+    ```
+4. **Run the tests:**
     ```sh
     go test ./...
     ```
-4. **Tear down the test environment:**
+5. **Tear down the test environment:**
     ```sh
     docker-compose --file compose.test.yml down
     ```
