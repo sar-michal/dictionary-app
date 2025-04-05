@@ -13,7 +13,7 @@
 
 ## Description
 
-The Dictionary-App is a system designed to collect translations of Polish words into English in a relational, normalized database. It provides a public GraphQL API that allows end users to manage translations - create new ones, retrieve, modify, and remove existing ones. Users can send a Polish word and its English translation along with example sentences demonstrating the word's usage. The system supports multiple translations for a single word (e.g., "pisać" can be translated as "write" and "type"). The application is designed to handle concurrent processing of translations.
+The Dictionary App is an application designed to collect translations of Polish words into English in a relational, normalized database. It provides a public GraphQL API that allows end users to manage translations - create new ones, retrieve, modify, and remove existing ones. Users can send a Polish word and its English translation along with example sentences demonstrating the word's usage. The system supports multiple translations for a single word (e.g., "pisać" can be translated as "write" and "type"). The application is designed to handle concurrent processing of translations.
 
 ## Entity Relationship Diagram
 ![Dictionary-App-ERD](https://github.com/user-attachments/assets/956a5a5d-ecd3-4d06-b0ed-e8dd0e306e2f)
@@ -73,11 +73,23 @@ The Dictionary-App is a system designed to collect translations of Polish words 
     ```sh
     docker-compose --file compose.test.yml --env-file .env.test up -d
     ```
-3. **Run the tests:**
+3. **Adjust the hardcoded Config in /pkg/repository/repository_test.go (if .env.test differs from the example one):**
+    ```go
+    // Hardcoded config to prevent accidents
+	config := &config.Config{
+		Host:     "localhost",
+		User:     "testuser",
+		Password: "testpass",
+		DBName:   "testdb",
+		Port:     "5431",
+		SSLMode:  "disable",
+	}
+    ```
+4. **Run the tests:**
     ```sh
     go test ./...
     ```
-4. **Tear down the test environment:**
+5. **Tear down the test environment:**
     ```sh
     docker-compose --file compose.test.yml down
     ```
